@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Bookmark, Camera, ChevronRight, Grid3x3, Maximize2, Ratio, RotateCcw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Bookmark, Camera, Check, ChevronDown, ChevronRight, Grid3x3, ImagePlus, Maximize2, Ratio, RotateCcw, UserRound, Video, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { answerLabel, cn } from "@/lib/utils";
@@ -310,8 +310,22 @@ function LandingIntro({ onContinue }: { onContinue: () => void }) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const showContinue = role.length > 0;
   const canContinue = name.trim().length > 0 && role.length > 0;
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  useEffect(() => stopCamera, [stopCamera]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -320,6 +334,41 @@ function LandingIntro({ onContinue }: { onContinue: () => void }) {
     const reader = new FileReader();
     reader.onload = () => setAvatar(typeof reader.result === "string" ? reader.result : "");
     reader.readAsDataURL(file);
+    setShowPhotoOptions(false);
+  };
+
+  const openLiveCamera = async () => {
+    setShowPhotoOptions(false);
+    setCameraError("");
+    setCameraOpen(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch {
+      setCameraError("Camera access is blocked or unavailable.");
+    }
+  };
+
+  const closeLiveCamera = () => {
+    stopCamera();
+    setCameraOpen(false);
+  };
+
+  const captureLivePhoto = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setAvatar(canvas.toDataURL("image/jpeg", 0.92));
+    closeLiveCamera();
   };
 
   return (
@@ -334,21 +383,47 @@ function LandingIntro({ onContinue }: { onContinue: () => void }) {
           </p>
         </div>
 
-        <div className="mt-14 flex w-full max-w-sm flex-col items-center sm:mt-16">
-          <div className="relative size-36 rounded-full bg-zinc-800 shadow-[0_24px_70px_rgba(0,0,0,0.55)] sm:size-40">
-            <div
-              className="size-full rounded-full bg-cover bg-center"
-              style={{ backgroundImage: avatar ? `url(${avatar})` : "url(/frames/doosra.jpeg)" }}
-            />
-            <label
-              htmlFor="participant-photo"
-              className="absolute bottom-1 right-2 grid size-8 cursor-pointer place-items-center rounded-full border border-white/30 bg-black/75 text-white transition hover:bg-zinc-900"
-              aria-label="Upload profile photo"
-              title="Upload profile photo"
+        <div className="mt-12 flex w-full max-w-sm flex-col items-center sm:mt-14">
+          <div className="relative size-36 rounded-full bg-zinc-900 shadow-[0_24px_70px_rgba(0,0,0,0.55)] ring-1 ring-white/10 sm:size-40">
+            {avatar ? (
+              <div
+                className="size-full rounded-full bg-cover bg-center"
+                style={{ backgroundImage: `url(${avatar})` }}
+              />
+            ) : (
+              <div className="grid size-full place-items-center rounded-full bg-[radial-gradient(circle_at_50%_28%,#565656,#1d1d1d_62%,#101010)] text-zinc-300">
+                <UserRound size={70} strokeWidth={1.35} />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowPhotoOptions((value) => !value)}
+              className="absolute bottom-1 right-2 grid size-9 place-items-center rounded-full border border-white/25 bg-black/80 text-white transition hover:border-[#C5A46D]/70 hover:text-[#C5A46D]"
+              aria-label="Change profile photo"
+              title="Change profile photo"
             >
               <Camera size={18} />
-            </label>
+            </button>
+            {showPhotoOptions && (
+              <div className="absolute left-1/2 top-[calc(100%+12px)] z-20 w-48 -translate-x-1/2 overflow-hidden rounded-md border border-white/10 bg-zinc-950/95 p-1 text-left shadow-2xl backdrop-blur">
+                <button
+                  type="button"
+                  onClick={openLiveCamera}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-200 transition hover:bg-white/10"
+                >
+                  <Video size={16} /> Live camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-200 transition hover:bg-white/10"
+                >
+                  <ImagePlus size={16} /> Browse image
+                </button>
+              </div>
+            )}
             <input
+              ref={fileInputRef}
               id="participant-photo"
               type="file"
               accept="image/*"
@@ -357,29 +432,44 @@ function LandingIntro({ onContinue }: { onContinue: () => void }) {
             />
           </div>
 
-          <div className="mt-9 grid w-full grid-cols-[64px_minmax(0,1fr)] items-center gap-x-3 gap-y-3 text-left text-sm text-zinc-300">
-            <label htmlFor="participant-name" className="text-right">Name</label>
+          <div className="mt-12 flex w-full flex-col gap-3 text-left">
             <input
               id="participant-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="h-9 min-w-0 border border-white/10 bg-zinc-500 px-3 text-base text-white outline-none transition placeholder:text-zinc-300 focus:border-white/45"
-              placeholder="Channa Deshapriya"
+              className="h-11 min-w-0 rounded-md border border-white/10 bg-[#d7d7d7] px-4 text-base text-zinc-950 outline-none transition placeholder:text-zinc-500 focus:border-[#C5A46D]/70 focus:bg-[#e4e4e4]"
+              placeholder="Type your name"
               autoComplete="name"
             />
 
-            <label htmlFor="participant-role" className="text-right">I&apos;m</label>
-            <select
-              id="participant-role"
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-              className="h-9 min-w-0 border border-white/15 bg-zinc-100 px-3 text-base text-zinc-700 outline-none transition focus:border-white/70"
-            >
-              <option value="" disabled>Select role</option>
-              {participantRoles.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowRoles((value) => !value)}
+                className="flex h-11 w-full items-center justify-between rounded-md border border-white/10 bg-white px-4 text-left text-base text-zinc-900 outline-none transition hover:border-[#C5A46D]/60"
+              >
+                <span className={role ? "text-zinc-900" : "text-zinc-500"}>{role || "Choose your role"}</span>
+                <ChevronDown size={18} className={cn("transition", showRoles && "rotate-180")} />
+              </button>
+              {showRoles && (
+                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-10 overflow-hidden rounded-md border border-white/10 bg-zinc-950/95 p-1 shadow-2xl backdrop-blur">
+                  {participantRoles.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        setRole(item);
+                        setShowRoles(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
+                    >
+                      {item}
+                      {role === item && <Check size={15} className="text-[#C5A46D]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -391,14 +481,60 @@ function LandingIntro({ onContinue }: { onContinue: () => void }) {
           title="Continue"
           disabled={!canContinue}
           onClick={onContinue}
-          className="absolute bottom-6 left-1/2 grid size-12 -translate-x-1/2 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition hover:border-[#C5A46D]/70 hover:bg-[#C5A46D] hover:text-black disabled:pointer-events-none disabled:opacity-35 sm:bottom-8"
+          className="absolute bottom-6 right-6 grid size-12 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition hover:border-[#C5A46D]/70 hover:bg-[#C5A46D] hover:text-black disabled:pointer-events-none disabled:opacity-35 sm:bottom-8 sm:right-8"
         >
           <ChevronRight size={24} />
         </button>
       )}
+
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-5 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-lg border border-white/10 bg-zinc-950 p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium text-zinc-200">Live camera</p>
+              <button
+                type="button"
+                onClick={closeLiveCamera}
+                className="grid size-9 place-items-center rounded-full bg-white/5 text-white transition hover:bg-white/10"
+                aria-label="Close camera"
+                title="Close camera"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="aspect-[4/3] overflow-hidden rounded-md bg-zinc-900">
+              {cameraError ? (
+                <div className="grid size-full place-items-center px-6 text-center text-sm text-zinc-300">
+                  {cameraError}
+                </div>
+              ) : (
+                <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeLiveCamera}
+                className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={captureLivePhoto}
+                disabled={Boolean(cameraError)}
+                className="rounded-md bg-[#C5A46D] px-4 py-2 text-sm font-medium text-black transition hover:bg-[#d4b57d] disabled:pointer-events-none disabled:opacity-40"
+              >
+                Capture
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+
 function GoldenRatioOverlay({ transformClass }: { transformClass: string }) {
   return (
     <svg
