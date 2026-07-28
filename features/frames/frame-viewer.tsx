@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Bookmark, Grid3x3, Maximize2, Ratio, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Camera, ChevronRight, Grid3x3, Maximize2, Ratio, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -17,7 +17,17 @@ const answers: Array<{ value: AnnotationAnswer; label: string }> = [
 
 const goldenTransforms = ["", "scale-x-[-1]", "scale-y-[-1]", "rotate-180"];
 
+const participantRoles = [
+  "Film Director",
+  "Cinematographer",
+  "Film Editor",
+  "Film Critic",
+  "Film Academic / Lecturer",
+  "Film Student"
+];
+
 export function FrameViewer({ frames }: { frames: Frame[] }) {
+  const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
   const [selected, setSelected] = useState<AnnotationAnswer | null>(null);
@@ -122,6 +132,10 @@ export function FrameViewer({ frames }: { frames: Frame[] }) {
     setShowThirds(false);
   };
 
+  if (!started) {
+    return <LandingIntro onContinue={() => setStarted(true)} />;
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white" onClick={clearOverlays}>
       <motion.div
@@ -129,16 +143,16 @@ export function FrameViewer({ frames }: { frames: Frame[] }) {
         initial={{ opacity: 0, scale: 1.01 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-0 flex items-start justify-center px-3 pb-28 pt-28 sm:px-8 sm:pb-28 sm:pt-28"
+        className="absolute inset-0 flex items-center justify-center px-3 pb-28 pt-24 sm:px-8 sm:pb-28 sm:pt-28"
       >
-        <div className="relative inline-flex max-h-[64vh] max-w-full justify-center sm:max-h-[68vh]">
+        <div className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]">
           <Image
             priority
             src={frame.frameImage}
             alt={`${frame.movie} frame at ${frame.timecode}`}
             width={1800}
             height={1013}
-            className="h-auto max-h-[64vh] w-auto max-w-full object-contain shadow-[0_40px_120px_rgba(0,0,0,0.65)] sm:max-h-[68vh]"
+            className="h-full w-full object-contain shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
             sizes="100vw"
           />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -292,6 +306,99 @@ export function FrameViewer({ frames }: { frames: Frame[] }) {
   );
 }
 
+function LandingIntro({ onContinue }: { onContinue: () => void }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [avatar, setAvatar] = useState("");
+  const showContinue = role.length > 0;
+  const canContinue = name.trim().length > 0 && role.length > 0;
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => setAvatar(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <main className="relative flex min-h-screen overflow-hidden bg-[#050505] px-5 py-10 text-white sm:px-8">
+      <section className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
+        <div className="max-w-4xl pt-2 sm:pt-6">
+          <h1 className="text-balance text-2xl font-semibold leading-tight text-zinc-300 sm:text-3xl">
+            A Visual Study on<br className="hidden sm:block" /> Unconventional Cinematography
+          </h1>
+          <p className="mx-auto mt-4 max-w-4xl text-pretty text-sm leading-6 text-zinc-400 sm:text-base">
+            Welcome to a specialized study on the visual language of contemporary cinema. We are investigating how unconventional spatial arrangements affect viewer perception and emotional response.
+          </p>
+        </div>
+
+        <div className="mt-14 flex w-full max-w-sm flex-col items-center sm:mt-16">
+          <div className="relative size-36 rounded-full bg-zinc-800 shadow-[0_24px_70px_rgba(0,0,0,0.55)] sm:size-40">
+            <div
+              className="size-full rounded-full bg-cover bg-center"
+              style={{ backgroundImage: avatar ? `url(${avatar})` : "url(/frames/doosra.jpeg)" }}
+            />
+            <label
+              htmlFor="participant-photo"
+              className="absolute bottom-1 right-2 grid size-8 cursor-pointer place-items-center rounded-full border border-white/30 bg-black/75 text-white transition hover:bg-zinc-900"
+              aria-label="Upload profile photo"
+              title="Upload profile photo"
+            >
+              <Camera size={18} />
+            </label>
+            <input
+              id="participant-photo"
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleAvatarChange}
+            />
+          </div>
+
+          <div className="mt-9 grid w-full grid-cols-[64px_minmax(0,1fr)] items-center gap-x-3 gap-y-3 text-left text-sm text-zinc-300">
+            <label htmlFor="participant-name" className="text-right">Name</label>
+            <input
+              id="participant-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="h-9 min-w-0 border border-white/10 bg-zinc-500 px-3 text-base text-white outline-none transition placeholder:text-zinc-300 focus:border-white/45"
+              placeholder="Channa Deshapriya"
+              autoComplete="name"
+            />
+
+            <label htmlFor="participant-role" className="text-right">I&apos;m</label>
+            <select
+              id="participant-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+              className="h-9 min-w-0 border border-white/15 bg-zinc-100 px-3 text-base text-zinc-700 outline-none transition focus:border-white/70"
+            >
+              <option value="" disabled>Select role</option>
+              {participantRoles.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {showContinue && (
+        <button
+          type="button"
+          aria-label="Continue"
+          title="Continue"
+          disabled={!canContinue}
+          onClick={onContinue}
+          className="absolute bottom-6 left-1/2 grid size-12 -translate-x-1/2 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition hover:border-[#C5A46D]/70 hover:bg-[#C5A46D] hover:text-black disabled:pointer-events-none disabled:opacity-35 sm:bottom-8"
+        >
+          <ChevronRight size={24} />
+        </button>
+      )}
+    </main>
+  );
+}
 function GoldenRatioOverlay({ transformClass }: { transformClass: string }) {
   return (
     <svg
