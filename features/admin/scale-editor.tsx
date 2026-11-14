@@ -16,17 +16,40 @@ const categoryNames: Record<Category, string> = {
   NOT_SURE: "Not sure"
 };
 
+const sameForAll = (scale: ScaleConfig) => {
+  const [a, b, c] = CATEGORIES.map((key) => JSON.stringify(scale.categories[key]));
+  return a === b && b === c;
+};
+
 export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; editable: boolean }) {
   const router = useRouter();
   const [scale, setScale] = useState(initial);
   const [category, setCategory] = useState<Category>("UNCONVENTIONAL");
+  const [shared, setShared] = useState(() => sameForAll(initial));
   const [previewLang, setPreviewLang] = useState<"en" | "si">("en");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const current = scale.categories[category];
 
   const update = (change: (value: ScaleConfig["categories"][Category]) => ScaleConfig["categories"][Category]) =>
-    setScale((state) => ({ categories: { ...state.categories, [category]: change(state.categories[category]) } }));
+    setScale((state) => {
+      const next = change(state.categories[category]);
+      // With "same text for all", every edit lands on all three first answers at once.
+      return shared
+        ? { categories: { UNCONVENTIONAL: next, CONVENTIONAL: next, NOT_SURE: next } }
+        : { categories: { ...state.categories, [category]: next } };
+    });
+
+  const toggleShared = (on: boolean) => {
+    setShared(on);
+    if (on) {
+      // Copy what is on screen to all three, so nothing is left with old text.
+      setScale((state) => {
+        const current = state.categories[category];
+        return { categories: { UNCONVENTIONAL: current, CONVENTIONAL: current, NOT_SURE: current } };
+      });
+    }
+  };
 
   const setLabel = (lang: "en" | "si", index: number, value: string) =>
     update((c) => ({ ...c, labels: { ...c.labels, [lang]: c.labels[lang].map((item, i) => (i === index ? value : item)) } }));
@@ -68,7 +91,24 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
         </p>
       )}
 
-      <div role="tablist" aria-label="First answer" className="mt-8 flex flex-wrap gap-2">
+      <label className="mt-8 flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
+        <input
+          type="checkbox"
+          checked={shared}
+          onChange={(event) => toggleShared(event.target.checked)}
+          disabled={!editable}
+          className="mt-0.5 size-4 accent-white"
+        />
+        <span>
+          Use the same text for all three answers
+          <span className="block text-xs text-zinc-500">
+            Every frame then shows these words under the numbers, whichever button was pressed. Turn this off to write different words after each answer.
+          </span>
+        </span>
+      </label>
+
+      {!shared && (
+      <div role="tablist" aria-label="First answer" className="mt-5 flex flex-wrap gap-2">
         {CATEGORIES.map((key) => (
           <button
             key={key}
@@ -85,6 +125,7 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
           </button>
         ))}
       </div>
+      )}
 
       <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form onSubmit={save} className="space-y-6">
@@ -169,7 +210,9 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
           <div className="rounded-xl bg-[#111111] p-6">
             <RatingScale labels={current.labels[previewLang]} selected={4} className="bg-transparent" />
             <p className="mt-4 text-center text-xs text-zinc-500">
-              This is the second step, shown after &ldquo;{categoryNames[category]}&rdquo; is chosen. The highlighted number is just an example.
+              {shared
+                ? "This is shown under every frame, after any of the three answers. The highlighted number is just an example."
+                : <>This is the second step, shown after &ldquo;{categoryNames[category]}&rdquo; is chosen. The highlighted number is just an example.</>}
             </p>
           </div>
         </div>
