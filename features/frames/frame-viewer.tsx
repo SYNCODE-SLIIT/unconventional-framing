@@ -112,16 +112,6 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
     [frame]
   );
 
-  const clearCategory = useCallback(() => {
-    if (!frame) return;
-    const frameId = frame.id;
-    setAnswers((current) => {
-      const next = { ...current };
-      delete next[frameId];
-      return next;
-    });
-  }, [frame]);
-
   const submitRating = useCallback(
     async (rating: number) => {
       if (!frame || !choice) return;
@@ -273,9 +263,9 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
         initial={{ opacity: 0, scale: 1.01 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-0 flex items-center justify-center px-3 pb-52 pt-24 sm:px-8 sm:pb-56 sm:pt-28"
+        className="absolute inset-0 flex items-center justify-center px-3 pb-72 pt-24 sm:px-8 sm:pb-72 sm:pt-28"
       >
-        <div className="relative flex h-[min(52dvh,calc(100dvh-20rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(62dvh,calc(100dvh-22rem))] lg:max-w-[min(78vw,1600px)]">
+        <div className="relative flex h-[min(46dvh,calc(100dvh-24rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(56dvh,calc(100dvh-25rem))] lg:max-w-[min(78vw,1600px)]">
           {/* Every frame is shown in a 16:9 box, and the thirds grid lives in that same box. */}
           <div
             data-tour="frame"
@@ -328,7 +318,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
             </motion.section>
 
             <div
-              className="pointer-events-none absolute bottom-56 top-28 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-8"
+              className="pointer-events-none absolute bottom-72 top-28 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-8"
               onClick={(event) => event.stopPropagation()}
             >
               <IconButton
@@ -358,51 +348,49 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
               className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 sm:px-8 sm:pb-6"
               onClick={(event) => event.stopPropagation()}
             >
-              <div
-                data-tour="answers"
-                className="mx-auto w-full max-w-3xl rounded-2xl bg-black/50 px-3 pb-3 pt-3 backdrop-blur-xl sm:px-6"
-              >
-                {choice ? (
-                  <>
-                    <div className="mb-3 flex items-center justify-center gap-3">
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-black">{t(answerKey[choice])}</span>
-                      <button
-                        type="button"
-                        onClick={clearCategory}
-                        className="text-xs text-zinc-400 underline-offset-2 transition hover:text-white hover:underline"
-                      >
-                        {t("changeAnswer")}
-                      </button>
-                    </div>
+              {/* The three buttons never move. The numbers appear just above them, between the buttons and the picture. */}
+              <div data-tour="answers" className="mx-auto w-full max-w-3xl space-y-2">
+                {choice && (
+                  <motion.div
+                    key={choice}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                  >
                     <RatingScale
                       question={scale.categories[choice].question[lang]}
                       labels={scale.categories[choice].labels[lang]}
                       selected={selected}
                       onSelect={(rating) => void submitRating(rating)}
-                      className="max-w-none bg-transparent p-0 backdrop-blur-none sm:px-0"
                     />
-                  </>
-                ) : (
-                  <>
-                    <p className="mb-3 text-center text-xs font-medium text-zinc-200 sm:text-sm">{t("answerPrompt")}</p>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      {CATEGORIES.map((category) => (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => chooseCategory(category)}
-                          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-2 text-[13px] font-medium text-white transition hover:border-white hover:bg-white/10 sm:text-base"
-                        >
-                          <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-current" />
-                          <span className="truncate">{t(answerKey[category])}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  </motion.div>
                 )}
+
+                <div className="grid grid-cols-3 gap-2 rounded-2xl bg-black/50 p-2 backdrop-blur-xl sm:gap-3">
+                  {CATEGORIES.map((category) => {
+                    const active = choice === category;
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => chooseCategory(category)}
+                        className={cn(
+                          "flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 text-[13px] font-medium transition sm:text-base",
+                          active
+                            ? "border-white bg-white text-black shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                            : "border-white/20 bg-white/5 text-white hover:border-white hover:bg-white/10"
+                        )}
+                      >
+                        <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-current" />
+                        <span className="truncate">{t(answerKey[category])}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-between gap-3">
+              <div className="mt-3 flex w-full items-center justify-between gap-3">
                 <div className="flex gap-2">
                   <IconButton label={t("saveFrame")} onClick={toggleBookmark}>
                     <Bookmark size={16} fill={bookmarked.has(frame.id) ? "#ffffff" : "transparent"} />
@@ -446,7 +434,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="absolute bottom-64 left-1/2 z-30 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-2xl sm:bottom-72"
+            className="absolute bottom-[19rem] left-1/2 z-30 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-2xl"
             role="status"
           >
             {toast}
