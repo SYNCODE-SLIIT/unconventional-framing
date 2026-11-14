@@ -37,6 +37,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const [selected, setSelected] = useState<AnnotationAnswer | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showThirds, setShowThirds] = useState(false);
+  const [ratio, setRatio] = useState(16 / 9);
   const [replayKey, setReplayKey] = useState(0);
   const [toast, setToast] = useState("");
   const [tourOpen, setTourOpen] = useState(false);
@@ -201,7 +202,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
       >
         <div
           data-tour="frame"
-          className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]"
+          className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]"
         >
           <Image
             priority
@@ -212,10 +213,12 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
             height={1013}
             className="h-full w-full object-contain shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
             sizes="100vw"
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth && naturalHeight) setRatio(naturalWidth / naturalHeight);
+            }}
           />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            {showThirds && <RuleOfThirdsOverlay />}
-          </div>
+          {showThirds && <RuleOfThirdsOverlay ratio={ratio} />}
         </div>
       </motion.div>
 
@@ -366,12 +369,30 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   );
 }
 
-function RuleOfThirdsOverlay() {
+/**
+ * Rule-of-thirds grid laid exactly over the picture itself (not the black space around it).
+ * The box is sized to the image's own aspect ratio and fitted inside the available area.
+ */
+function RuleOfThirdsOverlay({ ratio }: { ratio: number }) {
+  const line = "absolute bg-zinc-300/85 shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]";
+  const dot = "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-300 bg-black/25";
+
   return (
-    <svg aria-hidden viewBox="0 0 3 3" preserveAspectRatio="none" className="h-full w-full opacity-80">
-      <path d="M1 0V3 M2 0V3 M0 1H3 M0 2H3" stroke="rgba(255,80,70,0.9)" strokeWidth="0.01" />
-      <path d="M0.92 1H1.08 M1 0.92V1.08 M1.92 1H2.08 M2 0.92V1.08 M0.92 2H1.08 M1 1.92V2.08 M1.92 2H2.08 M2 1.92V2.08" stroke="rgba(255,80,70,0.95)" strokeWidth="0.015" />
-    </svg>
+    <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
+      <div
+        className="relative ring-1 ring-zinc-300/60"
+        style={{ aspectRatio: String(ratio), width: `min(100cqw, calc(100cqh * ${ratio}))` }}
+      >
+        <span className={`${line} left-1/3 top-0 h-full w-px`} />
+        <span className={`${line} left-2/3 top-0 h-full w-px`} />
+        <span className={`${line} left-0 top-1/3 h-px w-full`} />
+        <span className={`${line} left-0 top-2/3 h-px w-full`} />
+        <span className={`${dot} left-1/3 top-1/3`} />
+        <span className={`${dot} left-2/3 top-1/3`} />
+        <span className={`${dot} left-1/3 top-2/3`} />
+        <span className={`${dot} left-2/3 top-2/3`} />
+      </div>
+    </div>
   );
 }
 
