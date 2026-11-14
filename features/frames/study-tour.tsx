@@ -79,14 +79,16 @@ export function StudyTour({ onClose }: { onClose: () => void }) {
   }, [last, onClose]);
 
   // Card sits below the highlighted area when there is room, otherwise above it.
+  // (Positioned with top/bottom rather than a CSS transform, because the entrance animation owns `transform`.)
   const cardStyle = (() => {
-    if (!rect || !viewport.w) return { left: "50%", top: "50%", transform: "translate(-50%,-50%)" } as const;
+    const cardWidth = Math.min(CARD_W, Math.max(0, viewport.w - 24));
+    if (!rect || !viewport.w) return { left: Math.max(12, (viewport.w - cardWidth) / 2), top: Math.max(12, viewport.h / 2 - 110) };
     const below = viewport.h - (rect.top + rect.height);
-    const placeBelow = below > 210 || below > rect.top;
-    const left = Math.min(Math.max(12, rect.left + rect.width / 2 - CARD_W / 2), viewport.w - CARD_W - 12);
+    const placeBelow = below > 220 || below > rect.top;
+    const left = Math.min(Math.max(12, rect.left + rect.width / 2 - cardWidth / 2), viewport.w - cardWidth - 12);
     return placeBelow
-      ? ({ left, top: Math.min(rect.top + rect.height + 14, viewport.h - 200) } as const)
-      : ({ left, top: Math.max(12, rect.top - 14), transform: "translateY(-100%)" } as const);
+      ? { left, top: Math.min(rect.top + rect.height + 14, viewport.h - 230) }
+      : { left, bottom: Math.max(12, viewport.h - rect.top + 14) };
   })();
 
   return (

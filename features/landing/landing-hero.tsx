@@ -127,7 +127,7 @@ function BackgroundVideo() {
         allow="autoplay; encrypted-media; picture-in-picture"
         referrerPolicy="strict-origin-when-cross-origin"
         tabIndex={-1}
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[max(100cqh,56.25cqw)] w-[max(100cqw,177.78cqh)] -translate-x-1/2 -translate-y-1/2 border-0"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[max(100cqh,56.25cqw)] w-[max(100cqw,177.78cqh)] -translate-x-1/2 -translate-y-1/2 scale-[1.3] border-0"
       />
       <button
         type="button"
