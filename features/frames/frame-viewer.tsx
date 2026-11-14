@@ -34,7 +34,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const [frames, setFrames] = useState(initialFrames);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [selected, setSelected] = useState<AnnotationAnswer | null>(null);
+  const [responses, setResponses] = useState<Record<string, AnnotationAnswer>>({});
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showThirds, setShowThirds] = useState(false);
   const [ratio, setRatio] = useState(16 / 9);
@@ -43,6 +43,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const [tourOpen, setTourOpen] = useState(false);
   const currentId = useRef<string | undefined>(undefined);
   const frame: Frame | undefined = frames[index];
+  const selected: AnnotationAnswer | null = frame ? (responses[frame.id] ?? null) : null;
   const progress = useMemo(() => (frames.length ? ((index + 1) / frames.length) * 100 : 0), [frames.length, index]);
 
   currentId.current = frame?.id;
@@ -86,7 +87,6 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const goTo = useCallback(
     (nextIndex: number) => {
       setIndex(Math.max(0, Math.min(nextIndex, frames.length - 1)));
-      setSelected(null);
       setShowThirds(false);
       setToast("");
     },
@@ -96,20 +96,40 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const submitAnswer = useCallback(
     async (answer = selected) => {
       if (!answer || !frame) return;
-      setSelected(answer);
+      const frameId = frame.id;
+      const previous = responses[frameId];
+      setResponses((current) => ({ ...current, [frameId]: answer }));
       setToast(`${t(answerKey[answer])} ${t("saved")}`);
 
-      await fetch("/api/annotation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId, frameId: frame.id, answer })
-      });
+      let saved = false;
+      try {
+        const response = await fetch("/api/annotation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participantId, frameId, answer })
+        });
+        saved = response.ok;
+      } catch {
+        saved = false;
+      }
+
+      if (!saved) {
+        // Put the previous choice back so the screen never claims something that was not stored.
+        setResponses((current) => {
+          const next = { ...current };
+          if (previous) next[frameId] = previous;
+          else delete next[frameId];
+          return next;
+        });
+        setToast(t("saveFailed"));
+        return;
+      }
 
       window.setTimeout(() => {
         if (index < frames.length - 1) goTo(index + 1);
       }, 700);
     },
-    [frame, frames.length, goTo, index, participantId, selected, t]
+    [frame, frames.length, goTo, index, participantId, responses, selected, t]
   );
 
   useEffect(() => {
@@ -375,22 +395,17 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
  */
 function RuleOfThirdsOverlay({ ratio }: { ratio: number }) {
   const line = "absolute bg-zinc-300/85 shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]";
-  const dot = "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-300 bg-black/25";
 
   return (
     <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
       <div
-        className="relative ring-1 ring-zinc-300/60"
+        className="relative"
         style={{ aspectRatio: String(ratio), width: `min(100cqw, calc(100cqh * ${ratio}))` }}
       >
         <span className={`${line} left-1/3 top-0 h-full w-px`} />
         <span className={`${line} left-2/3 top-0 h-full w-px`} />
         <span className={`${line} left-0 top-1/3 h-px w-full`} />
         <span className={`${line} left-0 top-2/3 h-px w-full`} />
-        <span className={`${dot} left-1/3 top-1/3`} />
-        <span className={`${dot} left-2/3 top-1/3`} />
-        <span className={`${dot} left-1/3 top-2/3`} />
-        <span className={`${dot} left-2/3 top-2/3`} />
       </div>
     </div>
   );
