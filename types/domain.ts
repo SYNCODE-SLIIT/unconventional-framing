@@ -18,7 +18,39 @@ export type Annotation = {
   timestamp: string;
 };
 
+export type ParticipantSummary = {
+  id: string;
+  name: string;
+  profession: string;
+  avatar?: string;
+  createdAt: string;
+  answered: number;
+  conventional: number;
+  unconventional: number;
+  notSure: number;
+};
+
+export type ParticipantDetail = ParticipantSummary & {
+  totalFrames: number;
+  responses: Array<{
+    frameId: string;
+    movie: string;
+    frameImage: string;
+    timecode: string;
+    answer: AnnotationAnswer;
+    timestamp: string;
+  }>;
+};
+
 export type Statistics = {
+  participants: number;
+  professions: Array<{
+    profession: string;
+    participants: number;
+    conventional: number;
+    unconventional: number;
+    notSure: number;
+  }>;
   totalFrames: number;
   totalAnnotations: number;
   completionPercent: number;

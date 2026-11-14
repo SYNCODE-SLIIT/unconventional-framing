@@ -51,6 +51,8 @@ export function calculateStatistics(): Statistics {
     totalAnnotations === 0 ? 0 : Math.round((value / totalAnnotations) * 100);
 
   return {
+    participants: 0,
+    professions: [],
     totalFrames,
     totalAnnotations,
     completionPercent:

@@ -23,13 +23,14 @@ npm run dev
 
 Open `http://localhost:3000` for the cinematic annotation flow and `http://localhost:3000/admin` for the dashboard.
 
-## Database
+## Database (MongoDB via Prisma)
 
-Set `DATABASE_URL` in `.env`, then run:
+Set `DATABASE_URL` in `.env` (MongoDB Atlas or a local replica set), then run:
 
 ```bash
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:push   # creates collections and indexes
+npm run prisma:seed   # loads the frames
 ```
 
-The current API routes use the in-memory mock data in `lib/mock-data.ts` so the interface can run immediately. Replace those reads/writes with `prisma.frame`, `prisma.annotation`, and the authenticated user from `auth()` when connecting the production database.
+Collections: `Participant` (name + profession from the intro screen), `Frame`, `Annotation` (one per participant per frame), plus `User`/`Account`/`Session` for admin sign-in. `lib/data.ts` is the data layer. If `DATABASE_URL` is not set, it falls back to the in-memory data in `lib/mock-data.ts`.

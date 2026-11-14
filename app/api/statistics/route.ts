@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { calculateStatistics } from "@/lib/mock-data";
+import { getStatistics } from "@/lib/data";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(calculateStatistics());
+  return NextResponse.json(await getStatistics());
 }

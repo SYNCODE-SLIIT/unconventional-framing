@@ -22,11 +22,11 @@ export function ExportDialog() {
     pdf.text(report.title, 56, 120, { maxWidth: width - 112 });
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(12);
-    pdf.setTextColor(197, 164, 109);
+    pdf.setTextColor(200, 200, 200);
     pdf.text(`Researcher: ${report.researcher}`, 56, 178);
     pdf.text(`Date: ${new Date(report.date).toLocaleDateString()}`, 56, 202);
 
-    report.frames.forEach((frame: any, index: number) => {
+    report.frames.forEach((frame: { movie: string; director: string; dop: string; timecode: string; frameImage: string; summary?: string }, index: number) => {
       pdf.addPage();
       pdf.setFillColor(5, 5, 5);
       pdf.rect(0, 0, width, height, "F");
@@ -40,8 +40,8 @@ export function ExportDialog() {
       pdf.text(`Director: ${frame.director}`, 56, 105);
       pdf.text(`DOP: ${frame.dop}`, 56, 126);
       pdf.text(`Timecode: ${frame.timecode}`, 56, 147);
-      pdf.setTextColor(197, 164, 109);
-      pdf.text(`Selected answer: ${frame.annotation?.answer ?? "Not annotated"}`, 56, 182);
+      pdf.setTextColor(200, 200, 200);
+      pdf.text(`Responses: ${frame.summary ?? "Not annotated"}`, 56, 182);
       pdf.setTextColor(130, 130, 130);
       pdf.text(`Frame image: ${frame.frameImage}`, 56, 226, { maxWidth: width - 112 });
       pdf.text(`${index + 1}`, width - 72, height - 48);

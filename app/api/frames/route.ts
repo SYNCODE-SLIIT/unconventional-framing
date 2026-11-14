@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { frames } from "@/lib/mock-data";
+import { getFrames } from "@/lib/data";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ frames });
+  return NextResponse.json({ frames: await getFrames() });
 }

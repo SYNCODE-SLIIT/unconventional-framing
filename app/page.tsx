@@ -1,6 +1,8 @@
 import { FrameViewer } from "@/features/frames/frame-viewer";
-import { frames } from "@/lib/mock-data";
+import { getFrames } from "@/lib/data";
 
-export default function Home() {
-  return <FrameViewer frames={frames} />;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  return <FrameViewer frames={await getFrames()} />;
 }

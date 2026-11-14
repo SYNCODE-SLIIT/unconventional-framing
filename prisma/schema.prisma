@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -18,54 +18,65 @@ enum AnnotationAnswer {
   NOT_SURE
 }
 
+// Admin / researcher accounts (NextAuth). Study participants live in `Participant`.
 model User {
-  id            String       @id @default(cuid())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
-  email         String?      @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          Role         @default(RESEARCHER)
+  role          Role      @default(RESEARCHER)
   accounts      Account[]
   sessions      Session[]
-  annotations   Annotation[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// A person taking the study: captured on the intro screen (name + profession).
+model Participant {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  profession  String
+  avatar      String? // small data-URL thumbnail (resized in the browser)
+  annotations Annotation[]
+  createdAt   DateTime     @default(now())
+
+  @@index([profession])
 }
 
 model Frame {
-  id          String       @id @default(cuid())
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
   movie       String
   frameImage  String
   timecode    String
   director    String
   dop         String
-  sequence    Int
+  sequence    Int          @unique
   notes       String?
   annotations Annotation[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([movie])
-  @@index([sequence])
 }
 
 model Annotation {
-  id        String           @id @default(cuid())
-  userId    String
-  frameId   String
-  answer    AnnotationAnswer
-  notes     String?
-  timestamp DateTime         @default(now())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  frame     Frame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  participantId String           @db.ObjectId
+  frameId       String           @db.ObjectId
+  answer        AnnotationAnswer
+  notes         String?
+  timestamp     DateTime         @default(now())
+  participant   Participant      @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  frame         Frame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, frameId])
+  @@unique([participantId, frameId])
   @@index([answer])
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
   type              String
   provider          String
   providerAccountId String
@@ -82,14 +93,15 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.ObjectId
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   identifier String
   token      String
   expires    DateTime
