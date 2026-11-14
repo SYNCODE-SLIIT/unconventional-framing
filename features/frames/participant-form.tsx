@@ -4,13 +4,14 @@ import { ArrowLeft, ArrowRight, Check, Crop, ImagePlus, Video, X } from "lucide-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CropDialog } from "@/features/frames/crop-dialog";
 import { RoleCard } from "@/features/frames/role-card";
+import { LanguageSwitch, useLang, type Key } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-export const participantRoles = [
-  { value: "Film Director", label: "Film Director", hint: "Directs films or episodes" },
-  { value: "Cinematographer", label: "Cinematographer", hint: "Director of photography / camera" },
-  { value: "Academic / Lecturer", label: "Academic / Lecturer", hint: "Teaches or researches film" },
-  { value: "Film Student / Young Filmmaker", label: "Film Student / Young Filmmaker", hint: "Studying film or making early work" }
+export const participantRoles: Array<{ value: string; label: Key; hint: Key }> = [
+  { value: "Film Director", label: "roleDirector", hint: "hintDirector" },
+  { value: "Cinematographer", label: "roleCinematographer", hint: "hintCinematographer" },
+  { value: "Academic / Lecturer", label: "roleAcademic", hint: "hintAcademic" },
+  { value: "Film Student / Young Filmmaker", label: "roleStudent", hint: "hintStudent" }
 ];
 
 /** Grabs the current camera frame (mirrored, like the preview) as an image URL. */
@@ -33,6 +34,7 @@ export function ParticipantForm({
   onBack: () => void;
   onContinue: (participantId: string) => void;
 }) {
+  const { t } = useLang();
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [avatar, setAvatar] = useState("");
@@ -77,7 +79,7 @@ export function ParticipantForm({
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch {
-      setCameraError("Camera access is blocked or unavailable.");
+      setCameraError(t("cameraError"));
     }
   };
 
@@ -110,7 +112,7 @@ export function ParticipantForm({
       const { participant } = await response.json();
       onContinue(participant.id);
     } catch {
-      setSaveError("Could not save your details. Please try again.");
+      setSaveError(t("saveError"));
       setSaving(false);
     }
   };
@@ -120,6 +122,7 @@ export function ParticipantForm({
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
+      <LanguageSwitch />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(255,255,255,0.06),transparent_55%)]" />
 
       <button
@@ -127,31 +130,31 @@ export function ParticipantForm({
         onClick={onBack}
         className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-white sm:left-8 sm:top-8"
       >
-        <ArrowLeft size={16} /> Back
+        <ArrowLeft size={16} /> {t("back")}
       </button>
 
       <div className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-24 lg:py-6">
         <form onSubmit={submit} className="order-2 mx-auto w-full max-w-md lg:order-1 lg:mx-0">
-          <p className="text-xs uppercase tracking-[0.28em] text-zinc-300">Before we begin</p>
-          <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Create your card</h1>
+          <p className="text-xs uppercase tracking-[0.28em] text-zinc-300">{t("beforeBegin")}</p>
+          <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">{t("createCard")}</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Add your photo, name and role. Your card updates live as you type.
+            {t("createCardHint")}
           </p>
 
           <div className="mt-6 space-y-5">
             <div>
-              <span className="mb-2 block text-sm font-medium text-zinc-200">Your photo</span>
+              <span className="mb-2 block text-sm font-medium text-zinc-200">{t("yourPhoto")}</span>
               <div className="flex flex-wrap items-center gap-3">
                 <button type="button" onClick={pickFile} className={secondaryButton}>
-                  <ImagePlus size={16} /> {avatar ? "Change photo" : "Upload photo"}
+                  <ImagePlus size={16} /> {avatar ? t("changePhoto") : t("uploadPhoto")}
                 </button>
                 <button type="button" onClick={openLiveCamera} className={secondaryButton}>
-                  <Video size={16} /> Use camera
+                  <Video size={16} /> {t("useCamera")}
                 </button>
                 {avatar && (
                   <>
                     <button type="button" onClick={() => setCropping(true)} className={secondaryButton}>
-                      <Crop size={16} /> Crop
+                      <Crop size={16} /> {t("crop")}
                     </button>
                     <button
                       type="button"
@@ -161,33 +164,33 @@ export function ParticipantForm({
                       }}
                       className="inline-flex h-11 items-center rounded-full px-2 text-sm text-zinc-500 transition hover:text-white"
                     >
-                      Remove
+                      {t("remove")}
                     </button>
                   </>
                 )}
               </div>
-              <p className="mt-2 text-xs text-zinc-500">Optional. You can also drop an image onto your card.</p>
+              <p className="mt-2 text-xs text-zinc-500">{t("photoOptional")}</p>
               <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
             </div>
 
             <div>
               <label htmlFor="participant-name" className="mb-2 block text-sm font-medium text-zinc-200">
-                Your name
+                {t("yourName")}
               </label>
               <input
                 id="participant-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="h-12 w-full rounded-lg border border-white/15 bg-zinc-900 px-4 text-base text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:ring-2 focus:ring-white/25"
-                placeholder="e.g. Nimali Perera"
+                placeholder={t("namePlaceholder")}
                 autoComplete="name"
                 maxLength={60}
               />
             </div>
 
             <fieldset>
-              <legend className="mb-2 text-sm font-medium text-zinc-200">Your role</legend>
-              <div role="radiogroup" aria-label="Your role" className="grid grid-cols-2 gap-2.5">
+              <legend className="mb-2 text-sm font-medium text-zinc-200">{t("yourRole")}</legend>
+              <div role="radiogroup" aria-label={t("yourRole")} className="grid grid-cols-2 gap-2.5">
                 {participantRoles.map((item) => {
                   const active = role === item.value;
                   return (
@@ -196,16 +199,16 @@ export function ParticipantForm({
                       type="button"
                       role="radio"
                       aria-checked={active}
-                      title={item.hint}
+                      title={t(item.hint)}
                       onClick={() => setRole(item.value)}
                       className={cn(
-                        "relative flex min-h-12 items-center justify-center rounded-lg border px-3 py-2 text-center text-sm font-medium leading-tight transition",
+                        "relative flex min-h-14 items-center justify-center whitespace-pre-line rounded-lg border px-3 py-2 text-center text-sm font-medium leading-tight transition",
                         active
                           ? "border-white bg-white/15 text-white shadow-[0_0_24px_rgba(255,255,255,0.18)]"
                           : "border-white/12 bg-zinc-900 text-zinc-300 hover:border-white/30 hover:bg-zinc-800 hover:text-white"
                       )}
                     >
-                      {item.label}
+                      {t(item.label)}
                       {active && (
                         <span className="absolute right-1.5 top-1.5 grid size-4 place-items-center rounded-full bg-white text-black">
                           <Check size={11} strokeWidth={3} />
@@ -229,7 +232,7 @@ export function ParticipantForm({
             disabled={!canContinue}
             className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-base font-medium text-black shadow-[0_0_36px_rgba(255,255,255,0.25)] transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
-            {saving ? "Saving…" : "Start the study"} {!saving && <ArrowRight size={18} />}
+            {saving ? t("saving") : t("startStudy")} {!saving && <ArrowRight size={18} />}
           </button>
         </form>
 
@@ -271,13 +274,13 @@ export function ParticipantForm({
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-5 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-lg border border-white/10 bg-zinc-950 p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-medium text-zinc-200">Live camera</p>
+              <p className="text-sm font-medium text-zinc-200">{t("liveCamera")}</p>
               <button
                 type="button"
                 onClick={closeLiveCamera}
                 className="grid size-9 place-items-center rounded-full bg-white/5 text-white transition hover:bg-white/10"
-                aria-label="Close camera"
-                title="Close camera"
+                aria-label={t("closeCamera")}
+                title={t("closeCamera")}
               >
                 <X size={18} />
               </button>
@@ -295,7 +298,7 @@ export function ParticipantForm({
                 onClick={closeLiveCamera}
                 className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/10"
               >
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -303,7 +306,7 @@ export function ParticipantForm({
                 disabled={Boolean(cameraError)}
                 className="rounded-md bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:pointer-events-none disabled:opacity-40"
               >
-                Capture
+                {t("capture")}
               </button>
             </div>
           </div>

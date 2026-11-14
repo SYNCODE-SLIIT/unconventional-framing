@@ -2,6 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useLang } from "@/lib/i18n";
 
 const OUT_W = 400;
 const OUT_H = 500;
@@ -24,6 +25,7 @@ export function CropDialog({
   onCancel: () => void;
   onDone: (dataUrl: string) => void;
 }) {
+  const { t } = useLang();
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [crop, setCrop] = useState<Crop>({ x: 0, y: 0, w: 0 });
@@ -125,18 +127,18 @@ export function CropDialog({
       className="fixed inset-0 z-50 grid place-items-center bg-black/85 px-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Crop your photo"
+      aria-label={t("cropTitle")}
     >
       <div className="w-full max-w-fit rounded-xl border border-white/10 bg-zinc-950 p-4 shadow-2xl">
         <div className="mb-3 flex items-center justify-between gap-6">
           <div>
-            <p className="text-sm font-medium text-white">Crop your photo</p>
-            <p className="text-xs text-zinc-500">Drag the frame to move it. Drag a corner to resize.</p>
+            <p className="text-sm font-medium text-white">{t("cropTitle")}</p>
+            <p className="text-xs text-zinc-500">{t("cropHint")}</p>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Cancel"
+            aria-label={t("cancel")}
             className="grid size-9 place-items-center rounded-full bg-white/5 text-white transition hover:bg-white/10"
           >
             <X size={18} />
@@ -186,7 +188,7 @@ export function CropDialog({
             onClick={onCancel}
             className="h-10 rounded-full border border-white/15 px-5 text-sm text-zinc-200 transition hover:bg-white/10"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             type="button"
@@ -194,7 +196,7 @@ export function CropDialog({
             disabled={!image}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:opacity-40"
           >
-            <Check size={16} /> Crop &amp; use
+            <Check size={16} /> {t("cropUse")}
           </button>
         </div>
       </div>

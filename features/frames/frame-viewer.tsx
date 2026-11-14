@@ -9,18 +9,26 @@ import { Progress } from "@/components/ui/progress";
 import { LandingHero } from "@/features/landing/landing-hero";
 import { ParticipantForm } from "@/features/frames/participant-form";
 import { StudyTour } from "@/features/frames/study-tour";
-import { answerLabel, cn } from "@/lib/utils";
+import { useLang, type Key } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import type { AnnotationAnswer, Frame } from "@/types/domain";
 
-const answers: Array<{ value: AnnotationAnswer; label: string }> = [
-  { value: "UNCONVENTIONAL", label: "Unconventional" },
-  { value: "CONVENTIONAL", label: "Conventional" },
-  { value: "NOT_SURE", label: "Not Sure" }
+const answers: Array<{ value: AnnotationAnswer; label: Key }> = [
+  { value: "UNCONVENTIONAL", label: "ansUnconventional" },
+  { value: "CONVENTIONAL", label: "ansConventional" },
+  { value: "NOT_SURE", label: "ansNotSure" }
 ];
+
+const answerKey: Record<AnnotationAnswer, Key> = {
+  UNCONVENTIONAL: "ansUnconventional",
+  CONVENTIONAL: "ansConventional",
+  NOT_SURE: "ansNotSure"
+};
 
 const REFRESH_MS = 15_000;
 
 export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
+  const { t } = useLang();
   const [stage, setStage] = useState<"landing" | "details" | "viewer">("landing");
   const [participantId, setParticipantId] = useState("");
   const [frames, setFrames] = useState(initialFrames);
@@ -88,7 +96,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
     async (answer = selected) => {
       if (!answer || !frame) return;
       setSelected(answer);
-      setToast(`${answerLabel(answer)} saved`);
+      setToast(`${t(answerKey[answer])} ${t("saved")}`);
 
       await fetch("/api/annotation", {
         method: "POST",
@@ -100,7 +108,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
         if (index < frames.length - 1) goTo(index + 1);
       }, 700);
     },
-    [frame, frames.length, goTo, index, participantId, selected]
+    [frame, frames.length, goTo, index, participantId, selected, t]
   );
 
   useEffect(() => {
@@ -175,8 +183,8 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#050505] px-6 text-center text-white">
         <div>
-          <h1 className="text-2xl font-semibold">No frames to rate right now</h1>
-          <p className="mt-2 text-sm text-zinc-400">Please check back in a little while.</p>
+          <h1 className="text-2xl font-semibold">{t("noFrames")}</h1>
+          <p className="mt-2 text-sm text-zinc-400">{t("noFramesHint")}</p>
         </div>
       </main>
     );
@@ -224,20 +232,20 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
             >
               <div>
                 <h1 className="text-xl font-semibold tracking-normal sm:text-2xl">{frame.movie}</h1>
-                <p className="mt-1 text-sm text-zinc-300">timecode : {frame.timecode}</p>
+                <p className="mt-1 text-sm text-zinc-300">{t("timecode")} : {frame.timecode}</p>
               </div>
               <div className="hidden text-center sm:block">
                 <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">
-                  Frame {index + 1} / {frames.length}
+                  {t("frame")} {index + 1} / {frames.length}
                 </p>
                 <Progress value={progress} className="mx-auto mt-3 max-w-72" />
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:justify-end sm:text-right">
                 <p className="text-zinc-300">
-                  Director <span className="font-medium text-white">{frame.director}</span>
+                  {t("director")} <span className="font-medium text-white">{frame.director}</span>
                 </p>
                 <p className="text-zinc-300">
-                  DOP <span className="font-medium text-white">{frame.dop}</span>
+                  {t("dop")} <span className="font-medium text-white">{frame.dop}</span>
                 </p>
               </div>
             </motion.section>
@@ -247,7 +255,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
               onClick={(event) => event.stopPropagation()}
             >
               <IconButton
-                label="Previous frame"
+                label={t("prevFrame")}
                 onClick={() => goTo(index - 1)}
                 disabled={index === 0}
                 className="pointer-events-auto"
@@ -256,7 +264,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
               </IconButton>
               <IconButton
                 data-tour="next"
-                label="Next frame"
+                label={t("nextFrame")}
                 onClick={() => goTo(index + 1)}
                 disabled={index === frames.length - 1}
                 className="pointer-events-auto"
@@ -275,13 +283,13 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
             >
               <div className="grid w-full grid-cols-[92px_minmax(0,1fr)_140px] items-center gap-3">
                 <div className="flex justify-self-start gap-2">
-                  <IconButton label="Save frame" onClick={toggleBookmark}>
+                  <IconButton label={t("saveFrame")} onClick={toggleBookmark}>
                     <Bookmark
                       size={16}
                       fill={bookmarked.has(frame.id) ? "#ffffff" : "transparent"}
                     />
                   </IconButton>
-                  <IconButton label="Replay frame" onClick={replayFrame}>
+                  <IconButton label={t("replayFrame")} onClick={replayFrame}>
                     <RotateCcw size={16} />
                   </IconButton>
                 </div>
@@ -303,24 +311,24 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
                       )}
                     >
                       <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-current" />
-                      <span className="truncate">{answer.label}</span>
+                      <span className="truncate">{t(answer.label)}</span>
                     </Button>
                   ))}
                 </div>
 
                 <div data-tour="tools" className="flex justify-self-end gap-2">
-                  <IconButton label="Show the guide" onClick={() => setTourOpen(true)}>
+                  <IconButton label={t("showGuide")} onClick={() => setTourOpen(true)}>
                     <CircleHelp size={16} />
                   </IconButton>
                   <IconButton
-                    label="Rule of thirds overlay"
+                    label={t("thirds")}
                     onClick={() => setShowThirds((value) => !value)}
                     className={showThirds ? "border border-white/70 text-zinc-300" : undefined}
                   >
                     <Grid3x3 size={16} />
                   </IconButton>
                   <IconButton
-                    label="Fullscreen"
+                    label={t("fullscreen")}
                     onClick={() => void document.documentElement.requestFullscreen()}
                   >
                     <Maximize2 size={16} />

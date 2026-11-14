@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Aperture, Camera, Clapperboard, GraduationCap, NotebookPen, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -26,11 +27,12 @@ function Portrait({
   imageClass?: string;
   emptyClass?: string;
 }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={avatar ? "Change photo" : "Add your photo"}
+      aria-label={avatar ? t("changePhoto") : t("addPhoto")}
       className={cn("group relative block w-full overflow-hidden text-left", className)}
     >
       {avatar ? (
@@ -40,24 +42,25 @@ function Portrait({
         <div className={cn("grid size-full place-items-center", emptyClass)}>
           <div className="flex flex-col items-center gap-2 opacity-60">
             <UserRound size={52} strokeWidth={1.2} />
-            <span className="text-[10px] uppercase tracking-[0.22em]">Add your photo</span>
+            <span className="text-[10px] uppercase tracking-[0.22em]">{t("addPhoto")}</span>
           </div>
         </div>
       )}
       <span className="pointer-events-none absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
         <span className="inline-flex items-center gap-2 rounded-full bg-black/75 px-3.5 py-1.5 text-xs font-medium text-white">
-          <Camera size={13} /> {avatar ? "Change photo" : "Upload photo"}
+          <Camera size={13} /> {avatar ? t("changePhoto") : t("uploadPhoto")}
         </span>
       </span>
     </button>
   );
 }
 
-function Name({ value, className, placeholder = "Your name" }: { value: string; className?: string; placeholder?: string }) {
+function Name({ value, className, placeholder }: { value: string; className?: string; placeholder?: string }) {
+  const { t } = useLang();
   const shown = value.trim();
   return (
     <p className={cn("break-words", className, !shown && "opacity-35")} title={shown}>
-      {shown || placeholder}
+      {shown || placeholder || t("cardName")}
     </p>
   );
 }
@@ -66,6 +69,7 @@ const shadow = "shadow-[0_24px_60px_rgba(0,0,0,0.65)]";
 
 /* Director: clapperboard slate. Hard black/white stripes, all-caps, crisp white rule. */
 function DirectorCard({ name, avatar, onPhotoClick }: Props) {
+  const { t } = useLang();
   return (
     <div className={cn("overflow-hidden rounded-xl border border-white/70 bg-black", shadow)}>
       <div
@@ -87,7 +91,7 @@ function DirectorCard({ name, avatar, onPhotoClick }: Props) {
         <Name value={name} className="mt-4 text-2xl font-extrabold uppercase leading-none tracking-wide text-white" />
         <div className="mt-2.5 flex items-center gap-2 text-zinc-300">
           <Clapperboard size={14} />
-          <span className="text-[11px] uppercase tracking-[0.25em]">Film Director</span>
+          <span className="text-[11px] uppercase tracking-[0.25em]">{t("roleDirector")}</span>
         </div>
         <p className="mt-3 border-t border-white/15 pt-2.5 text-[11px] italic text-zinc-500">&ldquo;Action.&rdquo;</p>
       </div>
@@ -97,6 +101,7 @@ function DirectorCard({ name, avatar, onPhotoClick }: Props) {
 
 /* Cinematographer: lens + viewfinder. Concentric rings, focus brackets, exposure data. */
 function CinematographerCard({ name, avatar, onPhotoClick }: Props) {
+  const { t } = useLang();
   return (
     <div className={cn("relative overflow-hidden rounded-xl border border-white/20 bg-[linear-gradient(160deg,#1c1c1e_0%,#09090a_70%)]", shadow)}>
       <svg aria-hidden viewBox="0 0 200 200" className="pointer-events-none absolute -bottom-14 -right-14 size-64 text-white/[0.07]">
@@ -140,7 +145,7 @@ function CinematographerCard({ name, avatar, onPhotoClick }: Props) {
           ))}
         </div>
         <Name value={name} className="mt-4 text-2xl font-semibold leading-tight text-white" />
-        <p className="mt-1.5 text-[11px] uppercase tracking-[0.25em] text-zinc-400">Cinematographer</p>
+        <p className="mt-1.5 text-[11px] uppercase tracking-[0.25em] text-zinc-400">{t("roleCinematographer")}</p>
         <p className="mt-3 border-t border-white/10 pt-2.5 font-mono text-[10px] text-zinc-500">24 fps · 2.39:1 · ISO 800</p>
       </div>
     </div>
@@ -149,6 +154,7 @@ function CinematographerCard({ name, avatar, onPhotoClick }: Props) {
 
 /* Academic: formal credential. Double frame, serif, arched portrait, centred. */
 function AcademicCard({ name, avatar, onPhotoClick }: Props) {
+  const { t } = useLang();
   return (
     <div className={cn("rounded-xl border border-white/50 bg-black p-1 font-serif", shadow)}>
       <div className="rounded-lg border border-white/25 p-4">
@@ -165,7 +171,7 @@ function AcademicCard({ name, avatar, onPhotoClick }: Props) {
           emptyClass="bg-zinc-950 text-zinc-300"
         />
         <Name value={name} className="mt-4 text-center text-2xl font-semibold leading-tight text-white" />
-        <p className="mt-1.5 text-center text-[11px] uppercase tracking-[0.3em] text-zinc-400">Academic / Lecturer</p>
+        <p className="mt-1.5 text-center text-[11px] uppercase tracking-[0.3em] text-zinc-400">{t("roleAcademic")}</p>
         <p className="mt-3 border-t border-white/20 pt-2.5 text-center text-[11px] italic text-zinc-500">Reading cinema closely.</p>
       </div>
     </div>
@@ -174,6 +180,7 @@ function AcademicCard({ name, avatar, onPhotoClick }: Props) {
 
 /* Student: ID badge. Ash lanyard slot, bold header, tilted slightly like a worn badge. */
 function StudentCard({ name, avatar, onPhotoClick }: Props) {
+  const { t } = useLang();
   return (
     <div className={cn("relative -rotate-1 overflow-hidden rounded-xl bg-zinc-300 p-3 text-zinc-900", shadow)}>
       <div className="mx-auto mb-2 h-1.5 w-14 rounded-full bg-zinc-500/70" aria-hidden />
@@ -191,7 +198,7 @@ function StudentCard({ name, avatar, onPhotoClick }: Props) {
             emptyClass="bg-zinc-100 text-zinc-500"
           />
           <div className="mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-zinc-800">
-            <NotebookPen size={15} /> Student / Young Filmmaker
+            <NotebookPen size={15} /> {t("cardStudentRole")}
           </div>
           <p className="mt-0.5 text-center text-[11px] text-zinc-500">Always learning, always watching.</p>
         </div>
@@ -201,9 +208,10 @@ function StudentCard({ name, avatar, onPhotoClick }: Props) {
 }
 
 function BlankCard({ name, avatar, onPhotoClick }: Props) {
+  const { t } = useLang();
   return (
     <div className={cn("rounded-xl border border-dashed border-white/25 bg-zinc-950/70 p-4", shadow)}>
-      <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500">Participant</p>
+      <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500">{t("cardParticipant")}</p>
       <Portrait
         avatar={avatar}
         onClick={onPhotoClick}
@@ -211,7 +219,7 @@ function BlankCard({ name, avatar, onPhotoClick }: Props) {
         emptyClass="bg-zinc-900 text-zinc-400"
       />
       <Name value={name} className="mt-4 text-2xl font-semibold leading-tight text-white" />
-      <p className="mt-1.5 text-[11px] uppercase tracking-[0.2em] text-zinc-500">Choose a role to style your card</p>
+      <p className="mt-1.5 text-[11px] uppercase tracking-[0.2em] text-zinc-500">{t("cardChooseRole")}</p>
     </div>
   );
 }

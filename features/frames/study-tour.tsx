@@ -2,35 +2,16 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useLang, type Key } from "@/lib/i18n";
 
-type Step = { target: string; title: string; body: string };
+type Step = { target: string; title: Key; body: Key };
 
 const steps: Step[] = [
-  {
-    target: '[data-tour="frame"]',
-    title: "This is the frame",
-    body: "Look at the picture first, in full. Click anywhere or press any key to show or hide the movie details."
-  },
-  {
-    target: '[data-tour="info"]',
-    title: "Movie details",
-    body: "The film, timecode, director and cinematographer appear here, along with your progress through the frames."
-  },
-  {
-    target: '[data-tour="answers"]',
-    title: "Give your answer",
-    body: "Choose Unconventional, Conventional or Not Sure. Shortcut keys: 1, 2 and 3. Your answer is saved and the next frame opens."
-  },
-  {
-    target: '[data-tour="next"]',
-    title: "Move between frames",
-    body: "Use the arrows, or the left and right arrow keys, to go back or skip ahead."
-  },
-  {
-    target: '[data-tour="tools"]',
-    title: "Helpful tools",
-    body: "Show a rule-of-thirds grid, go fullscreen, or reopen this guide any time with the ? button."
-  }
+  { target: '[data-tour="frame"]', title: "tour1Title", body: "tour1Body" },
+  { target: '[data-tour="info"]', title: "tour2Title", body: "tour2Body" },
+  { target: '[data-tour="answers"]', title: "tour3Title", body: "tour3Body" },
+  { target: '[data-tour="next"]', title: "tour4Title", body: "tour4Body" },
+  { target: '[data-tour="tools"]', title: "tour5Title", body: "tour5Body" }
 ];
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -39,6 +20,7 @@ const PAD = 8;
 const CARD_W = 320;
 
 export function StudyTour({ onClose }: { onClose: () => void }) {
+  const { t } = useLang();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
@@ -121,10 +103,10 @@ export function StudyTour({ onClose }: { onClose: () => void }) {
           className="absolute rounded-xl border border-white/15 bg-zinc-950 p-5 text-white shadow-2xl"
         >
           <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-            Step {step + 1} of {steps.length}
+            {t("tourStep")} {step + 1} {t("tourOf")} {steps.length}
           </p>
-          <h2 className="mt-2 text-lg font-semibold">{current.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">{current.body}</p>
+          <h2 className="mt-2 text-lg font-semibold">{t(current.title)}</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">{t(current.body)}</p>
 
           <div className="mt-5 flex items-center justify-between">
             <button
@@ -132,7 +114,7 @@ export function StudyTour({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               className="text-sm text-zinc-500 transition hover:text-white"
             >
-              Skip
+              {t("skip")}
             </button>
             <div className="flex gap-2">
               {step > 0 && (
@@ -141,7 +123,7 @@ export function StudyTour({ onClose }: { onClose: () => void }) {
                   onClick={() => setStep((s) => s - 1)}
                   className="h-9 rounded-full border border-white/15 px-4 text-sm text-zinc-200 transition hover:bg-white/10"
                 >
-                  Back
+                  {t("back")}
                 </button>
               )}
               <button
@@ -149,7 +131,7 @@ export function StudyTour({ onClose }: { onClose: () => void }) {
                 onClick={() => (last ? onClose() : setStep((s) => s + 1))}
                 className="h-9 rounded-full bg-white px-5 text-sm font-medium text-black transition hover:bg-zinc-200"
               >
-                {last ? "Start rating" : "Next"}
+                {last ? t("startRating") : t("next")}
               </button>
             </div>
           </div>
