@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getFrames, hasDatabase, saveAnnotation } from "@/lib/data";
-import { SCALE_POINTS } from "@/lib/scale";
+import { CATEGORIES, SCALE_POINTS } from "@/lib/scale";
 
 const annotationSchema = z.object({
   participantId: z.string().min(1),
   frameId: z.string().min(1),
+  answer: z.enum(CATEGORIES),
   rating: z.number().int().min(1).max(SCALE_POINTS),
   notes: z.string().max(2000).optional()
 });

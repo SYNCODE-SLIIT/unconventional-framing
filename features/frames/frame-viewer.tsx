@@ -12,20 +12,30 @@ import { ThirdsGrid } from "@/features/frames/thirds-grid";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { RatingScale } from "@/features/frames/rating-scale";
-import { SCALE_POINTS, type ScaleConfig } from "@/lib/scale";
+import { downloadReport } from "@/features/frames/report";
+import { ThankYou } from "@/features/frames/thank-you";
+import { CATEGORIES, SCALE_POINTS, type Category, type ScaleConfig } from "@/lib/scale";
 import type { Frame } from "@/types/domain";
 
 const REFRESH_MS = 15_000;
 
+const answerKey = {
+  UNCONVENTIONAL: "ansUnconventional",
+  CONVENTIONAL: "ansConventional",
+  NOT_SURE: "ansNotSure"
+} as const;
+
 export function FrameViewer({ frames: initialFrames, scale: initialScale }: { frames: Frame[]; scale: ScaleConfig }) {
   const { t, lang } = useLang();
-  const [stage, setStage] = useState<"landing" | "details" | "viewer">("landing");
-  const [participantId, setParticipantId] = useState("");
+  const [stage, setStage] = useState<"landing" | "details" | "viewer" | "done">("landing");
+  const [participant, setParticipant] = useState({ id: "", name: "", profession: "" });
   const [frames, setFrames] = useState(initialFrames);
   const [scale, setScale] = useState(initialScale);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [responses, setResponses] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, Category>>({}); // step 1, per frame
+  const [responses, setResponses] = useState<Record<string, number>>({}); // step 2 (saved), per frame
+  const savedAnswer = useRef<Record<string, Category>>({});
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showThirds, setShowThirds] = useState(false);
   const [replayKey, setReplayKey] = useState(0);
@@ -33,6 +43,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
   const [tourOpen, setTourOpen] = useState(false);
   const currentId = useRef<string | undefined>(undefined);
   const frame: Frame | undefined = frames[index];
+  const choice: Category | null = frame ? (answers[frame.id] ?? null) : null;
   const selected: number | null = frame ? (responses[frame.id] ?? null) : null;
   const progress = useMemo(() => (frames.length ? ((index + 1) / frames.length) * 100 : 0), [frames.length, index]);
 
@@ -84,10 +95,38 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
     [frames.length]
   );
 
-  const submitAnswer = useCallback(
-    async (rating = selected) => {
-      if (!rating || !frame) return;
+  const chooseCategory = useCallback(
+    (category: Category) => {
+      if (!frame) return;
       const frameId = frame.id;
+      setAnswers((current) => ({ ...current, [frameId]: category }));
+      // A number only stays highlighted if it was saved together with this same first answer.
+      if (savedAnswer.current[frameId] !== category) {
+        setResponses((current) => {
+          const next = { ...current };
+          delete next[frameId];
+          return next;
+        });
+      }
+    },
+    [frame]
+  );
+
+  const clearCategory = useCallback(() => {
+    if (!frame) return;
+    const frameId = frame.id;
+    setAnswers((current) => {
+      const next = { ...current };
+      delete next[frameId];
+      return next;
+    });
+  }, [frame]);
+
+  const submitRating = useCallback(
+    async (rating: number) => {
+      if (!frame || !choice) return;
+      const frameId = frame.id;
+      const answer = choice;
       const previous = responses[frameId];
       setResponses((current) => ({ ...current, [frameId]: rating }));
       setToast(`${t("rated")} ${rating} · ${t("saved")}`);
@@ -97,7 +136,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
         const response = await fetch("/api/annotation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ participantId, frameId, rating })
+          body: JSON.stringify({ participantId: participant.id, frameId, answer, rating })
         });
         saved = response.ok;
       } catch {
@@ -116,11 +155,13 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
         return;
       }
 
+      savedAnswer.current[frameId] = answer;
       window.setTimeout(() => {
         if (index < frames.length - 1) goTo(index + 1);
+        else setStage("done");
       }, 700);
     },
-    [frame, frames.length, goTo, index, participantId, responses, selected, t]
+    [choice, frame, frames.length, goTo, index, participant.id, responses, t]
   );
 
   useEffect(() => {
@@ -142,15 +183,19 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
         event.preventDefault();
         setVisible((value) => !value);
       }
-      if (event.key === "Enter") void submitAnswer();
       if (event.key === "Escape" && document.fullscreenElement) void document.exitFullscreen();
       const digit = Number(event.key);
-      if (Number.isInteger(digit) && digit >= 1 && digit <= SCALE_POINTS) void submitAnswer(digit);
+      if (!Number.isInteger(digit) || digit < 1) return;
+      if (!choice) {
+        if (digit <= CATEGORIES.length) chooseCategory(CATEGORIES[digit - 1]);
+      } else if (digit <= SCALE_POINTS) {
+        void submitRating(digit);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goTo, index, stage, submitAnswer, tourOpen, visible]);
+  }, [choice, chooseCategory, goTo, index, stage, submitRating, tourOpen, visible]);
 
   const toggleBookmark = () => {
     if (!frame) return;
@@ -182,10 +227,30 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
     return (
       <ParticipantForm
         onBack={() => setStage("landing")}
-        onContinue={(id) => {
-          setParticipantId(id);
+        onContinue={(person) => {
+          setParticipant(person);
           setStage("viewer");
         }}
+      />
+    );
+  }
+
+  if (stage === "done") {
+    return (
+      <ThankYou
+        onReview={() => {
+          setIndex(Math.max(0, frames.length - 1));
+          setStage("viewer");
+        }}
+        onDownload={() =>
+          downloadReport({
+            participant,
+            frames,
+            answers: savedAnswer.current,
+            ratings: responses,
+            scale
+          })
+        }
       />
     );
   }
@@ -293,13 +358,49 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
               className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 sm:px-8 sm:pb-6"
               onClick={(event) => event.stopPropagation()}
             >
-              <RatingScale
-                tourId="answers"
-                question={scale.question[lang]}
-                labels={scale.labels[lang]}
-                selected={selected}
-                onSelect={(rating) => void submitAnswer(rating)}
-              />
+              <div
+                data-tour="answers"
+                className="mx-auto w-full max-w-3xl rounded-2xl bg-black/50 px-3 pb-3 pt-3 backdrop-blur-xl sm:px-6"
+              >
+                {choice ? (
+                  <>
+                    <div className="mb-3 flex items-center justify-center gap-3">
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-black">{t(answerKey[choice])}</span>
+                      <button
+                        type="button"
+                        onClick={clearCategory}
+                        className="text-xs text-zinc-400 underline-offset-2 transition hover:text-white hover:underline"
+                      >
+                        {t("changeAnswer")}
+                      </button>
+                    </div>
+                    <RatingScale
+                      question={scale.categories[choice].question[lang]}
+                      labels={scale.categories[choice].labels[lang]}
+                      selected={selected}
+                      onSelect={(rating) => void submitRating(rating)}
+                      className="max-w-none bg-transparent p-0 backdrop-blur-none sm:px-0"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-3 text-center text-xs font-medium text-zinc-200 sm:text-sm">{t("answerPrompt")}</p>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      {CATEGORIES.map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => chooseCategory(category)}
+                          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-2 text-[13px] font-medium text-white transition hover:border-white hover:bg-white/10 sm:text-base"
+                        >
+                          <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-current" />
+                          <span className="truncate">{t(answerKey[category])}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-between gap-3">
                 <div className="flex gap-2">

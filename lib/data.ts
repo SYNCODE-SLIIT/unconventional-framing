@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { annotations as mockAnnotations, frames as mockFrames } from "@/lib/mock-data";
 import { SCALE_POINTS, defaultScale, normalizeScale, type ScaleConfig } from "@/lib/scale";
-import type { Frame, ParticipantDetail, ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
+import type { AnnotationAnswer, Frame, ParticipantDetail, ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 /**
  * Data access layer. Uses MongoDB (via Prisma) when DATABASE_URL is set,
@@ -73,11 +73,18 @@ export async function createParticipant(input: { name: string; profession: strin
   return prisma.participant.create({ data: input });
 }
 
-export async function saveAnnotation(input: { participantId: string; frameId: string; rating: number; notes?: string }) {
+export async function saveAnnotation(input: {
+  participantId: string;
+  frameId: string;
+  answer: AnnotationAnswer;
+  rating: number;
+  notes?: string;
+}) {
   if (!hasDatabase) {
     const annotation = {
       participantId: input.participantId,
       frameId: input.frameId,
+      answer: input.answer,
       rating: input.rating,
       notes: input.notes,
       timestamp: new Date().toISOString()
@@ -89,9 +96,9 @@ export async function saveAnnotation(input: { participantId: string; frameId: st
   const row = await prisma.annotation.upsert({
     where: { participantId_frameId: { participantId: input.participantId, frameId: input.frameId } },
     create: input,
-    update: { rating: input.rating, notes: input.notes, timestamp: new Date() }
+    update: { answer: input.answer, rating: input.rating, notes: input.notes, timestamp: new Date() }
   });
-  return { frameId: row.frameId, rating: row.rating ?? input.rating, notes: row.notes ?? undefined, timestamp: row.timestamp.toISOString() };
+  return { frameId: row.frameId, answer: input.answer, rating: row.rating ?? input.rating, notes: row.notes ?? undefined, timestamp: row.timestamp.toISOString() };
 }
 
 // ---------- Admin: analytics ----------
@@ -100,12 +107,17 @@ export async function getStatistics(): Promise<Statistics> {
   const [frames, rows, participants] = hasDatabase
     ? await Promise.all([
         prisma.frame.findMany({ select: { id: true, movie: true } }),
-        prisma.annotation.findMany({ select: { frameId: true, rating: true, participantId: true } }),
+        prisma.annotation.findMany({ select: { frameId: true, rating: true, answer: true, participantId: true } }),
         prisma.participant.findMany({ select: { id: true, profession: true } })
       ])
     : [
         mockFrames.map((frame) => ({ id: frame.id, movie: frame.movie })),
-        [...mockAnnotations.values()].map((item) => ({ frameId: item.frameId, rating: item.rating as number | null, participantId: item.participantId ?? "" })),
+        [...mockAnnotations.values()].map((item) => ({
+          frameId: item.frameId,
+          rating: item.rating as number | null,
+          answer: (item.answer ?? null) as AnnotationAnswer | null,
+          participantId: item.participantId ?? ""
+        })),
         [] as Array<{ id: string; profession: string }>
       ];
 
@@ -122,6 +134,12 @@ export async function getStatistics(): Promise<Statistics> {
     completionPercent: frames.length === 0 ? 0 : Math.round((answeredFrames / frames.length) * 100),
     averageRating: average(ratings),
     distribution: countRatings(ratings),
+    categories: Object.fromEntries(
+      (["UNCONVENTIONAL", "CONVENTIONAL", "NOT_SURE"] as const).map((key) => {
+        const mine = rated.filter((row) => row.answer === key).map((row) => row.rating);
+        return [key, { count: mine.length, percent: rated.length ? Math.round((mine.length / rated.length) * 100) : 0, average: average(mine) }];
+      })
+    ) as Statistics["categories"],
     movies: [...new Set(frames.map((frame) => frame.movie))].map((movie) => {
       const ids = new Set(frames.filter((frame) => frame.movie === movie).map((frame) => frame.id));
       const mine = rated.filter((row) => ids.has(row.frameId)).map((row) => row.rating);
@@ -135,17 +153,18 @@ export async function getStatistics(): Promise<Statistics> {
   };
 }
 
-function summarize(ratings: number[]) {
-  if (ratings.length === 0) return "Not rated";
-  const counts = countRatings(ratings);
-  return `${ratings.length} ratings, average ${average(ratings)} (${counts.map((count, index) => `${index + 1}: ${count}`).join(", ")})`;
+function summarize(rows: Array<{ answer?: AnnotationAnswer | null; rating: number }>) {
+  if (rows.length === 0) return "Not rated";
+  const ratings = rows.map((row) => row.rating);
+  const by = (key: AnnotationAnswer) => rows.filter((row) => row.answer === key).length;
+  return `${rows.length} responses, average ${average(ratings)}. Unconventional ${by("UNCONVENTIONAL")}, Conventional ${by("CONVENTIONAL")}, Not sure ${by("NOT_SURE")}`;
 }
 
 export async function getExportRows() {
   if (!hasDatabase) {
     return mockFrames.map((frame) => {
       const found = [...mockAnnotations.values()].filter((item) => item.frameId === frame.id);
-      return { ...frame, summary: summarize(found.map((item) => item.rating)) };
+      return { ...frame, summary: summarize(found.map((item) => ({ answer: item.answer, rating: item.rating }))) };
     });
   }
 
@@ -164,8 +183,9 @@ export async function getExportRows() {
       director: frame.director,
       dop: frame.dop,
       sequence: frame.sequence,
-      summary: summarize(rated.map((item) => item.rating)),
+      summary: summarize(rated.map((item) => ({ answer: item.answer, rating: item.rating }))),
       annotations: rated.map((item) => ({
+        answer: item.answer,
         rating: item.rating,
         participant: item.participant.name,
         profession: item.participant.profession,
@@ -218,6 +238,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
       movie: item.frame.movie,
       frameImage: frameImageUrl(item.frame),
       timecode: item.frame.timecode,
+      answer: item.answer ?? undefined,
       rating: item.rating,
       timestamp: item.timestamp.toISOString()
     }));

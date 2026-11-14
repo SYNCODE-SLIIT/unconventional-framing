@@ -6,9 +6,13 @@ import { SCALE_POINTS } from "@/lib/scale";
 const label = z.string().trim().min(1).max(60);
 const labels = z.array(label).length(SCALE_POINTS);
 
-const scaleSchema = z.object({
+const category = z.object({
   question: z.object({ en: z.string().trim().min(1).max(200), si: z.string().trim().min(1).max(200) }),
   labels: z.object({ en: labels, si: labels })
+});
+
+const scaleSchema = z.object({
+  categories: z.object({ UNCONVENTIONAL: category, CONVENTIONAL: category, NOT_SURE: category })
 });
 
 export async function PATCH(request: Request) {

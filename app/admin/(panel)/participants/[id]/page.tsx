@@ -12,6 +12,8 @@ export const metadata = {
   robots: { index: false, follow: false }
 };
 
+const answerNames = { UNCONVENTIONAL: "Unconventional", CONVENTIONAL: "Conventional", NOT_SURE: "Not sure" } as const;
+
 export default async function ParticipantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [participant, scale] = await Promise.all([getParticipant(id), getScale()]);
@@ -73,7 +75,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
                   </div>
                   <span className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-xs text-zinc-200">
                     <span className="grid size-6 place-items-center rounded-full bg-white text-xs font-semibold text-black">{item.rating}</span>
-                    {scale.labels.en[item.rating - 1]}
+                    {item.answer ? `${answerNames[item.answer]} · ${scale.categories[item.answer].labels.en[item.rating - 1]}` : ""}
                   </span>
                 </div>
               </li>

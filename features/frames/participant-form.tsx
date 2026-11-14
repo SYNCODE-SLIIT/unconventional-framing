@@ -32,7 +32,7 @@ export function ParticipantForm({
   onContinue
 }: {
   onBack: () => void;
-  onContinue: (participantId: string) => void;
+  onContinue: (participant: { id: string; name: string; profession: string }) => void;
 }) {
   const { t } = useLang();
   const [name, setName] = useState("");
@@ -110,7 +110,7 @@ export function ParticipantForm({
       });
       if (!response.ok) throw new Error("Failed");
       const { participant } = await response.json();
-      onContinue(participant.id);
+      onContinue({ id: participant.id, name: name.trim(), profession: role });
     } catch {
       setSaveError(t("saveError"));
       setSaving(false);

@@ -1,3 +1,5 @@
+export type AnnotationAnswer = "UNCONVENTIONAL" | "CONVENTIONAL" | "NOT_SURE";
+
 export type Frame = {
   id: string;
   movie: string;
@@ -13,6 +15,7 @@ export type Frame = {
 export type Annotation = {
   participantId?: string;
   frameId: string;
+  answer?: AnnotationAnswer;
   rating: number;
   notes?: string;
   timestamp: string;
@@ -36,6 +39,7 @@ export type ParticipantDetail = ParticipantSummary & {
     movie: string;
     frameImage: string;
     timecode: string;
+    answer?: AnnotationAnswer;
     rating: number;
     timestamp: string;
   }>;
@@ -51,6 +55,8 @@ export type Statistics = {
   completionPercent: number;
   averageRating: number;
   distribution: RatingCounts;
+  /** How participants split across the three first-step answers, with the average number they gave. */
+  categories: Record<AnnotationAnswer, { count: number; percent: number; average: number }>;
   movies: Array<{
     movie: string;
     frames: number;

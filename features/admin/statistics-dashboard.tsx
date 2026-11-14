@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExportDialog } from "@/features/admin/export-dialog";
-import type { ScaleConfig } from "@/lib/scale";
 import type { ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 const tooltipStyle = { background: "#111111", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" };
@@ -13,18 +12,21 @@ const tooltipStyle = { background: "#111111", border: "1px solid rgba(255,255,25
 // 1 = darkest, 5 = white: reads as a scale in a black and white theme.
 const shades = ["#3f3f46", "#71717a", "#a1a1aa", "#d4d4d8", "#ffffff"];
 
+const categoryNames = {
+  UNCONVENTIONAL: "Unconventional",
+  CONVENTIONAL: "Conventional",
+  NOT_SURE: "Not sure"
+} as const;
+
 export function StatisticsDashboard({
   statistics,
-  participants,
-  scale
+  participants
 }: {
   statistics: Statistics;
   participants: ParticipantSummary[];
-  scale: ScaleConfig;
 }) {
   const [query, setQuery] = useState("");
   const [profession, setProfession] = useState("All roles");
-  const names = scale.labels.en;
 
   const filtered = useMemo(
     () =>
@@ -54,21 +56,43 @@ export function StatisticsDashboard({
         <Metric label="Average rating" value={statistics.totalAnnotations ? `${statistics.averageRating} / 5` : "–"} />
       </section>
 
-      <section className="mt-8 rounded-lg bg-[#111111] p-5">
-        <h2 className="text-lg font-medium">All ratings</h2>
-        <Distribution counts={statistics.distribution} names={names} />
+      <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-lg bg-[#111111] p-5">
+          <h2 className="text-lg font-medium">First answer</h2>
+          <p className="mt-1 text-sm text-zinc-500">How participants described each frame, and the average number they then chose.</p>
+          <ul className="mt-5 space-y-4">
+            {(Object.keys(categoryNames) as Array<keyof typeof categoryNames>).map((key) => {
+              const item = statistics.categories[key];
+              return (
+                <li key={key}>
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-zinc-200">{categoryNames[key]}</span>
+                    <span className="text-zinc-400">
+                      {item.count} · {item.percent}%{item.count > 0 && <span className="ml-2 text-zinc-500">avg {item.average}</span>}
+                    </span>
+                  </div>
+                  <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-white/5">
+                    <span className="block h-full rounded-full bg-white" style={{ width: `${item.percent}%` }} />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div className="rounded-lg bg-[#111111] p-5">
+          <h2 className="text-lg font-medium">Numbers chosen (1 to 5)</h2>
+          <Distribution counts={statistics.distribution} />
+        </div>
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <Chart
           title="Ratings by movie"
           data={statistics.movies.map((item) => ({ label: item.movie, counts: item.counts }))}
-          names={names}
         />
         <Chart
           title="Ratings by participant role"
           data={statistics.professions.map((item) => ({ label: item.profession, counts: item.counts }))}
-          names={names}
         />
       </section>
 
@@ -154,7 +178,7 @@ export function Avatar({ src, size }: { src?: string; size: number }) {
 }
 
 /** One bar per rating with its share, so the shape of the answers is visible at a glance. */
-function Distribution({ counts, names }: { counts: RatingCounts; names: string[] }) {
+function Distribution({ counts }: { counts: RatingCounts }) {
   const total = counts.reduce((sum, value) => sum + value, 0);
   if (total === 0) return <p className="py-10 text-center text-sm text-zinc-500">No ratings yet</p>;
 
@@ -163,9 +187,8 @@ function Distribution({ counts, names }: { counts: RatingCounts; names: string[]
       {counts.map((count, index) => {
         const percent = Math.round((count / total) * 100);
         return (
-          <li key={index} className="grid grid-cols-[2rem_minmax(0,11rem)_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm">
+          <li key={index} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm">
             <span className="grid size-7 place-items-center rounded-full bg-white/10 text-xs font-semibold">{index + 1}</span>
-            <span className="truncate text-zinc-300">{names[index]}</span>
             <span className="h-2.5 overflow-hidden rounded-full bg-white/5">
               <span className="block h-full rounded-full" style={{ width: `${percent}%`, background: shades[index] }} />
             </span>
@@ -179,7 +202,7 @@ function Distribution({ counts, names }: { counts: RatingCounts; names: string[]
   );
 }
 
-function Chart({ title, data, names }: { title: string; data: Array<{ label: string; counts: RatingCounts }>; names: string[] }) {
+function Chart({ title, data }: { title: string; data: Array<{ label: string; counts: RatingCounts }> }) {
   const rows = data.map((item) => ({
     label: item.label,
     ...Object.fromEntries(item.counts.map((count, index) => [`r${index + 1}`, count]))
@@ -200,7 +223,7 @@ function Chart({ title, data, names }: { title: string; data: Array<{ label: str
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
               <Legend />
               {shades.map((fill, index) => (
-                <Bar key={index} dataKey={`r${index + 1}`} name={`${index + 1} · ${names[index]}`} stackId="a" fill={fill} />
+                <Bar key={index} dataKey={`r${index + 1}`} name={`Number ${index + 1}`} stackId="a" fill={fill} />
               ))}
             </BarChart>
           </ResponsiveContainer>
