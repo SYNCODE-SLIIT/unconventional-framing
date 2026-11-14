@@ -1,5 +1,5 @@
 import { StatisticsDashboard } from "@/features/admin/statistics-dashboard";
-import { getParticipants, getStatistics } from "@/lib/data";
+import { getDeletedParticipants, getParticipants, getStatistics } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,6 @@ export const metadata = {
 };
 
 export default async function AdminPage() {
-  const [statistics, participants] = await Promise.all([getStatistics(), getParticipants()]);
-  return <StatisticsDashboard statistics={statistics} participants={participants} />;
+  const [statistics, participants, deleted] = await Promise.all([getStatistics(), getParticipants(), getDeletedParticipants()]);
+  return <StatisticsDashboard statistics={statistics} participants={participants} deleted={deleted} />;
 }

@@ -38,6 +38,7 @@ model Participant {
   name        String
   profession  String
   avatar      String? // small data-URL thumbnail (resized in the browser)
+  deletedAt   DateTime? // set when an admin moves the participant to the bin; null or missing means active
   annotations Annotation[]
   createdAt   DateTime     @default(now())
 

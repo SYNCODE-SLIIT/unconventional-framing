@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Avatar } from "@/features/admin/statistics-dashboard";
+import { Avatar } from "@/features/admin/avatar";
 import { getParticipant, getScale } from "@/lib/data";
 
 export const dynamic = "force-dynamic";

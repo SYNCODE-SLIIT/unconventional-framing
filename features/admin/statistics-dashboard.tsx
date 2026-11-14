@@ -1,11 +1,8 @@
 "use client";
 
-import { ChevronRight, Search, Trash2, UserRound } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExportDialog } from "@/features/admin/export-dialog";
+import { ParticipantsPanel } from "@/features/admin/participants-panel";
 import type { ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 const tooltipStyle = { background: "#111111", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" };
@@ -21,44 +18,13 @@ const categoryNames = {
 
 export function StatisticsDashboard({
   statistics,
-  participants
+  participants,
+  deleted
 }: {
   statistics: Statistics;
   participants: ParticipantSummary[];
+  deleted: ParticipantSummary[];
 }) {
-  const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [profession, setProfession] = useState("All roles");
-  const [toDelete, setToDelete] = useState<ParticipantSummary | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-
-  const confirmDelete = async () => {
-    if (!toDelete) return;
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const response = await fetch(`/api/admin/participants/${toDelete.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Please sign in again." : "Could not delete this participant.");
-      setToDelete(null);
-      router.refresh();
-    } catch (caught) {
-      setDeleteError(caught instanceof Error ? caught.message : "Could not delete this participant.");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const filtered = useMemo(
-    () =>
-      participants.filter(
-        (item) =>
-          (profession === "All roles" || item.profession === profession) &&
-          item.name.toLowerCase().includes(query.trim().toLowerCase())
-      ),
-    [participants, profession, query]
-  );
-
   return (
     <div className="px-5 py-6 text-white sm:px-8 lg:px-12">
       <header className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
@@ -117,131 +83,12 @@ export function StatisticsDashboard({
         />
       </section>
 
-      <section className="mt-8 rounded-lg bg-[#111111] p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-medium">
-            Participants <span className="ml-1 text-sm text-zinc-500">{filtered.length}</span>
-          </h2>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex min-h-11 items-center gap-2 rounded-full bg-white/5 px-4 text-sm text-zinc-300">
-              <Search size={16} />
-              <input
-                aria-label="Search participants by name"
-                placeholder="Search name"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-40 bg-transparent text-white outline-none placeholder:text-zinc-500"
-              />
-            </label>
-            <select
-              aria-label="Filter by role"
-              value={profession}
-              onChange={(event) => setProfession(event.target.value)}
-              className="min-h-11 rounded-full border border-white/10 bg-black px-4 text-sm text-white"
-            >
-              <option>All roles</option>
-              {statistics.professions.map((item) => (
-                <option key={item.profession}>{item.profession}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {filtered.length === 0 ? (
-          <p className="py-12 text-center text-sm text-zinc-500">
-            {participants.length === 0 ? "No one has taken the study yet." : "No participants match."}
-          </p>
-        ) : (
-          <ul className="mt-5 divide-y divide-white/5">
-            {filtered.map((item) => (
-              <li key={item.id} className="group flex items-center gap-1 rounded-lg transition hover:bg-white/5">
-                <Link href={`/admin/participants/${item.id}`} className="flex min-w-0 flex-1 items-center gap-4 px-2 py-3">
-                  <Avatar src={item.avatar} size={44} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{item.name}</p>
-                    <p className="truncate text-sm text-zinc-400">{item.profession}</p>
-                  </div>
-                  <p className="hidden text-sm text-zinc-400 sm:block">
-                    {item.answered} / {statistics.totalFrames} rated
-                    {item.answered > 0 && <span className="ml-2 text-zinc-500">avg {item.average}</span>}
-                  </p>
-                  <p className="hidden text-sm text-zinc-500 md:block">{new Date(item.createdAt).toLocaleDateString()}</p>
-                  <ChevronRight size={18} className="text-zinc-600 transition group-hover:text-white" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteError("");
-                    setToDelete(item);
-                  }}
-                  aria-label={`Delete ${item.name}`}
-                  title="Delete participant"
-                  className="mr-1 grid size-9 shrink-0 place-items-center rounded-full text-zinc-500 transition hover:bg-red-500/15 hover:text-red-300"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {toDelete && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-4 backdrop-blur-sm" role="alertdialog" aria-modal="true">
-          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-zinc-950 p-5 shadow-2xl">
-            <h2 className="text-lg font-semibold">Delete {toDelete.name}?</h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              This permanently removes them from the database: their profile and photo
-              {toDelete.answered > 0 && (
-                <>
-                  , and all {toDelete.answered} {toDelete.answered === 1 ? "rating" : "ratings"} they gave
-                </>
-              )}
-              . The totals and charts will update. This can&apos;t be undone.
-            </p>
-            {deleteError && (
-              <p role="alert" className="mt-3 text-sm text-red-400">
-                {deleteError}
-              </p>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setToDelete(null)}
-                className="h-10 rounded-full border border-white/15 px-5 text-sm text-zinc-200 transition hover:bg-white/10"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={deleting}
-                className="h-10 rounded-full bg-red-500 px-5 text-sm font-medium text-white transition hover:bg-red-400 disabled:opacity-50"
-              >
-                {deleting ? "Deleting…" : "Delete permanently"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function Avatar({ src, size }: { src?: string; size: number }) {
-  return src ? (
-    <div
-      className="shrink-0 rounded-full bg-cover bg-center ring-1 ring-white/15"
-      style={{ width: size, height: size, backgroundImage: `url(${src})` }}
-      role="img"
-      aria-label="Participant photo"
-    />
-  ) : (
-    <div
-      className="grid shrink-0 place-items-center rounded-full bg-zinc-800 text-zinc-400 ring-1 ring-white/10"
-      style={{ width: size, height: size }}
-    >
-      <UserRound size={size * 0.5} strokeWidth={1.5} />
+      <ParticipantsPanel
+        active={participants}
+        deleted={deleted}
+        totalFrames={statistics.totalFrames}
+        professions={statistics.professions.map((item) => item.profession)}
+      />
     </div>
   );
 }

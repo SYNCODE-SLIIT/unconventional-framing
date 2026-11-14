@@ -27,6 +27,8 @@ export type ParticipantSummary = {
   profession: string;
   avatar?: string;
   createdAt: string;
+  /** Only set for participants in the bin. */
+  deletedAt?: string;
   answered: number;
   /** Average rating given, 0 when nothing has been rated yet. */
   average: number;

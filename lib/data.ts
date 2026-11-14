@@ -108,7 +108,7 @@ export async function getStatistics(): Promise<Statistics> {
     ? await Promise.all([
         prisma.frame.findMany({ select: { id: true, movie: true } }),
         prisma.annotation.findMany({ select: { frameId: true, rating: true, answer: true, participantId: true } }),
-        prisma.participant.findMany({ select: { id: true, profession: true } })
+        prisma.participant.findMany({ select: { id: true, profession: true, deletedAt: true } })
       ])
     : [
         mockFrames.map((frame) => ({ id: frame.id, movie: frame.movie })),
@@ -118,17 +118,23 @@ export async function getStatistics(): Promise<Statistics> {
           answer: (item.answer ?? null) as AnnotationAnswer | null,
           participantId: item.participantId ?? ""
         })),
-        [] as Array<{ id: string; profession: string }>
+        [] as Array<{ id: string; profession: string; deletedAt: Date | null }>
       ];
 
+  const inBin = new Set(participants.filter((item) => item.deletedAt).map((item) => item.id));
+  const people = participants.filter((item) => !item.deletedAt);
+
   // Older responses used a three-way answer and have no rating; they are left out of the numbers.
-  const rated = rows.filter((row): row is typeof row & { rating: number } => typeof row.rating === "number");
+  // Participants in the bin are left out too.
+  const rated = rows.filter(
+    (row): row is typeof row & { rating: number } => typeof row.rating === "number" && !inBin.has(row.participantId)
+  );
   const ratings = rated.map((row) => row.rating);
   const answeredFrames = new Set(rated.map((row) => row.frameId)).size;
   const professionOf = new Map(participants.map((item) => [item.id, item.profession]));
 
   return {
-    participants: participants.length,
+    participants: people.length,
     totalFrames: frames.length,
     totalAnnotations: rated.length,
     completionPercent: frames.length === 0 ? 0 : Math.round((answeredFrames / frames.length) * 100),
@@ -145,10 +151,10 @@ export async function getStatistics(): Promise<Statistics> {
       const mine = rated.filter((row) => ids.has(row.frameId)).map((row) => row.rating);
       return { movie, frames: ids.size, annotations: mine.length, average: average(mine), counts: countRatings(mine) };
     }),
-    professions: [...new Set(participants.map((item) => item.profession))].map((profession) => {
-      const people = participants.filter((item) => item.profession === profession);
+    professions: [...new Set(people.map((item) => item.profession))].map((profession) => {
+      const inRole = people.filter((item) => item.profession === profession);
       const mine = rated.filter((row) => professionOf.get(row.participantId) === profession).map((row) => row.rating);
-      return { profession, participants: people.length, annotations: mine.length, average: average(mine), counts: countRatings(mine) };
+      return { profession, participants: inRole.length, annotations: mine.length, average: average(mine), counts: countRatings(mine) };
     })
   };
 }
@@ -174,7 +180,9 @@ export async function getExportRows() {
   });
 
   return rows.map((frame) => {
-    const rated = frame.annotations.filter((item): item is typeof item & { rating: number } => typeof item.rating === "number");
+    const rated = frame.annotations.filter(
+      (item): item is typeof item & { rating: number } => typeof item.rating === "number" && !item.participant.deletedAt
+    );
     return {
       id: frame.id,
       movie: frame.movie,
@@ -197,7 +205,7 @@ export async function getExportRows() {
 
 // ---------- Admin: participants ----------
 
-export async function getParticipants(): Promise<ParticipantSummary[]> {
+async function loadParticipants(): Promise<ParticipantSummary[]> {
   if (!hasDatabase) return [];
 
   const rows = await prisma.participant.findMany({
@@ -213,10 +221,22 @@ export async function getParticipants(): Promise<ParticipantSummary[]> {
       profession: row.profession,
       avatar: row.avatar ?? undefined,
       createdAt: row.createdAt.toISOString(),
+      deletedAt: row.deletedAt ? row.deletedAt.toISOString() : undefined,
       answered: ratings.length,
       average: average(ratings)
     };
   });
+}
+
+export async function getParticipants(): Promise<ParticipantSummary[]> {
+  return (await loadParticipants()).filter((item) => !item.deletedAt);
+}
+
+/** Participants an admin has moved to the bin, most recently deleted first. */
+export async function getDeletedParticipants(): Promise<ParticipantSummary[]> {
+  return (await loadParticipants())
+    .filter((item) => item.deletedAt)
+    .sort((a, b) => (b.deletedAt as string).localeCompare(a.deletedAt as string));
 }
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
@@ -229,7 +249,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     }),
     prisma.frame.count()
   ]);
-  if (!row) return null;
+  if (!row || row.deletedAt) return null;
 
   const responses = row.annotations
     .filter((item): item is typeof item & { rating: number } => typeof item.rating === "number")
@@ -327,10 +347,20 @@ export async function reorderFrames(ids: string[]) {
   ]);
 }
 
-/** Removes a participant for good: their profile (including photo) and every rating they gave. */
-export async function deleteParticipant(id: string) {
+/** Moves participants to the bin. Their ratings are kept but no longer counted. */
+export async function binParticipants(ids: string[]) {
+  await prisma.participant.updateMany({ where: { id: { in: ids } }, data: { deletedAt: new Date() } });
+}
+
+/** Brings participants back from the bin, with all their ratings counted again. */
+export async function restoreParticipants(ids: string[]) {
+  await prisma.participant.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+}
+
+/** Removes participants for good: their profile (including photo) and every rating they gave. */
+export async function purgeParticipants(ids: string[]) {
   await prisma.$transaction([
-    prisma.annotation.deleteMany({ where: { participantId: id } }),
-    prisma.participant.delete({ where: { id } })
+    prisma.annotation.deleteMany({ where: { participantId: { in: ids } } }),
+    prisma.participant.deleteMany({ where: { id: { in: ids } } })
   ]);
 }
