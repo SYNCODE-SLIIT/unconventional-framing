@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { LandingHero } from "@/features/landing/landing-hero";
 import { ParticipantForm } from "@/features/frames/participant-form";
 import { StudyTour } from "@/features/frames/study-tour";
+import { ThirdsGrid } from "@/features/frames/thirds-grid";
 import { useLang, type Key } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { AnnotationAnswer, Frame } from "@/types/domain";
@@ -37,7 +38,6 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const [responses, setResponses] = useState<Record<string, AnnotationAnswer>>({});
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showThirds, setShowThirds] = useState(false);
-  const [ratio, setRatio] = useState(16 / 9);
   const [replayKey, setReplayKey] = useState(0);
   const [toast, setToast] = useState("");
   const [tourOpen, setTourOpen] = useState(false);
@@ -220,25 +220,24 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
         transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
         className="absolute inset-0 flex items-center justify-center px-3 pb-28 pt-24 sm:px-8 sm:pb-28 sm:pt-28"
       >
-        <div
-          data-tour="frame"
-          className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]"
-        >
-          <Image
-            priority
-            unoptimized={frame.frameImage.startsWith("/api/") || frame.frameImage.startsWith("data:")}
-            src={frame.frameImage}
-            alt={`${frame.movie} frame at ${frame.timecode}`}
-            width={1800}
-            height={1013}
-            className="h-full w-full object-contain shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
-            sizes="100vw"
-            onLoad={(event) => {
-              const { naturalWidth, naturalHeight } = event.currentTarget;
-              if (naturalWidth && naturalHeight) setRatio(naturalWidth / naturalHeight);
-            }}
-          />
-          {showThirds && <RuleOfThirdsOverlay ratio={ratio} />}
+        <div className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]">
+          {/* Every frame is shown in a 16:9 box, and the thirds grid lives in that same box. */}
+          <div
+            data-tour="frame"
+            className="relative shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
+            style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}
+          >
+            <Image
+              priority
+              fill
+              unoptimized={frame.frameImage.startsWith("/api/") || frame.frameImage.startsWith("data:")}
+              src={frame.frameImage}
+              alt={`${frame.movie} frame at ${frame.timecode}`}
+              className="object-contain"
+              sizes="100vw"
+            />
+            {showThirds && <ThirdsGrid />}
+          </div>
         </div>
       </motion.div>
 
@@ -386,28 +385,6 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
 
       {tourOpen && <StudyTour onClose={() => setTourOpen(false)} />}
     </main>
-  );
-}
-
-/**
- * Rule-of-thirds grid laid exactly over the picture itself (not the black space around it).
- * The box is sized to the image's own aspect ratio and fitted inside the available area.
- */
-function RuleOfThirdsOverlay({ ratio }: { ratio: number }) {
-  const line = "absolute bg-zinc-300/85 shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]";
-
-  return (
-    <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden>
-      <div
-        className="relative"
-        style={{ aspectRatio: String(ratio), width: `min(100cqw, calc(100cqh * ${ratio}))` }}
-      >
-        <span className={`${line} left-1/3 top-0 h-full w-px`} />
-        <span className={`${line} left-2/3 top-0 h-full w-px`} />
-        <span className={`${line} left-0 top-1/3 h-px w-full`} />
-        <span className={`${line} left-0 top-2/3 h-px w-full`} />
-      </div>
-    </div>
   );
 }
 

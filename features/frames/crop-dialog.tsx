@@ -4,9 +4,6 @@ import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLang } from "@/lib/i18n";
 
-const OUT_W = 400;
-const OUT_H = 500;
-const RATIO = OUT_H / OUT_W; // 1.25: crop frame is always a 4:5 portrait
 const MIN_W = 60;
 
 type Crop = { x: number; y: number; w: number };
@@ -19,12 +16,21 @@ type Handle = { hx: 0 | 1; hy: 0 | 1 };
 export function CropDialog({
   src,
   onCancel,
-  onDone
+  onDone,
+  aspect = 4 / 5,
+  outWidth = 400,
+  quality = 0.85
 }: {
   src: string;
   onCancel: () => void;
   onDone: (dataUrl: string) => void;
+  /** Crop frame shape as width / height. Portrait photos use 4/5, film frames use 16/9. */
+  aspect?: number;
+  outWidth?: number;
+  quality?: number;
 }) {
+  const ratio = 1 / aspect; // height per unit of width
+  const outHeight = Math.round(outWidth * ratio);
   const { t } = useLang();
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -44,13 +50,13 @@ export function CropDialog({
       const scale = Math.min(maxW / next.naturalWidth, maxH / next.naturalHeight, 1);
       const w = Math.round(next.naturalWidth * scale);
       const h = Math.round(next.naturalHeight * scale);
-      const cropW = Math.min(w, h / RATIO);
+      const cropW = Math.min(w, h / ratio);
       setBox({ w, h });
-      setCrop({ x: (w - cropW) / 2, y: (h - cropW * RATIO) / 2, w: cropW });
+      setCrop({ x: (w - cropW) / 2, y: (h - cropW * ratio) / 2, w: cropW });
       setImage(next);
     };
     next.src = src;
-  }, [src]);
+  }, [src, ratio]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onCancel();
@@ -76,7 +82,7 @@ export function CropDialog({
       type: "resize",
       handle,
       ax: handle.hx ? crop.x : crop.x + crop.w,
-      ay: handle.hy ? crop.y : crop.y + crop.w * RATIO
+      ay: handle.hy ? crop.y : crop.y + crop.w * ratio
     };
   };
 
@@ -85,7 +91,7 @@ export function CropDialog({
     if (!current) return;
 
     if (current.type === "move") {
-      const h = current.start.w * RATIO;
+      const h = current.start.w * ratio;
       setCrop({
         w: current.start.w,
         x: Math.min(box.w - current.start.w, Math.max(0, current.start.x + event.clientX - current.px)),
@@ -96,23 +102,23 @@ export function CropDialog({
 
     const p = local(event);
     const { handle, ax, ay } = current;
-    const wanted = Math.max(Math.abs(p.x - ax), Math.abs(p.y - ay) / RATIO);
+    const wanted = Math.max(Math.abs(p.x - ax), Math.abs(p.y - ay) / ratio);
     const roomX = handle.hx ? box.w - ax : ax;
-    const roomY = (handle.hy ? box.h - ay : ay) / RATIO;
+    const roomY = (handle.hy ? box.h - ay : ay) / ratio;
     const w = Math.max(MIN_W, Math.min(wanted, roomX, roomY));
-    setCrop({ w, x: handle.hx ? ax : ax - w, y: handle.hy ? ay : ay - w * RATIO });
+    setCrop({ w, x: handle.hx ? ax : ax - w, y: handle.hy ? ay : ay - w * ratio });
   };
 
   const confirm = () => {
     if (!image) return;
     const scale = image.naturalWidth / box.w;
     const canvas = document.createElement("canvas");
-    canvas.width = OUT_W;
-    canvas.height = OUT_H;
+    canvas.width = outWidth;
+    canvas.height = outHeight;
     const context = canvas.getContext("2d");
     if (!context) return;
-    context.drawImage(image, crop.x * scale, crop.y * scale, crop.w * scale, crop.w * RATIO * scale, 0, 0, OUT_W, OUT_H);
-    onDone(canvas.toDataURL("image/jpeg", 0.85));
+    context.drawImage(image, crop.x * scale, crop.y * scale, crop.w * scale, crop.w * ratio * scale, 0, 0, outWidth, outHeight);
+    onDone(canvas.toDataURL("image/jpeg", quality));
   };
 
   const corners: Array<Handle & { className: string; cursor: string }> = [
@@ -162,7 +168,7 @@ export function CropDialog({
               <div
                 onPointerDown={startMove}
                 className="absolute cursor-move border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.62)]"
-                style={{ left: crop.x, top: crop.y, width: crop.w, height: crop.w * RATIO }}
+                style={{ left: crop.x, top: crop.y, width: crop.w, height: crop.w * ratio }}
               >
                 <span className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
                   {Array.from({ length: 9 }).map((_, i) => (

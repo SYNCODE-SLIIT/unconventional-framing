@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Plus, Trash
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CropDialog } from "@/features/frames/crop-dialog";
+import { ThirdsGrid } from "@/features/frames/thirds-grid";
 import { cn } from "@/lib/utils";
 import type { Frame } from "@/types/domain";
 
@@ -22,29 +24,6 @@ type Draft = {
 
 const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: "", image: "", preview: "" };
 
-const MAX_WIDTH = 1800;
-
-/** Shrinks big photos so they upload fast and load quickly for participants. */
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new window.Image();
-    image.onload = () => {
-      const scale = Math.min(1, MAX_WIDTH / image.naturalWidth);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(image.naturalWidth * scale);
-      canvas.height = Math.round(image.naturalHeight * scale);
-      const context = canvas.getContext("2d");
-      if (!context) return reject(new Error("Canvas unavailable"));
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.88));
-    };
-    image.onerror = () => reject(new Error("Could not read that image"));
-    image.src = url;
-  });
-}
-
 const inputClass =
   "h-11 w-full rounded-lg border border-white/15 bg-zinc-900 px-3.5 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:ring-2 focus:ring-white/20";
 
@@ -56,6 +35,8 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
   const [error, setError] = useState("");
   const [items, setItems] = useState(frames);
   const [notice, setNotice] = useState("");
+  const [cropSrc, setCropSrc] = useState("");
+  const [showGrid, setShowGrid] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const startOrder = useRef<string[]>([]);
 
@@ -130,15 +111,10 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
     });
   };
 
-  const pickImage = async (file?: File) => {
+  const pickImage = (file?: File) => {
     if (!file || !file.type.startsWith("image/")) return;
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      setDraft((current) => (current ? { ...current, image: dataUrl, preview: dataUrl } : current));
-      setError("");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not read that image");
-    }
+    setError("");
+    setCropSrc(URL.createObjectURL(file));
   };
 
   const save = async (event: React.FormEvent) => {
@@ -354,23 +330,31 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
             >
               {draft.preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={draft.preview} alt="Frame preview" className="size-full object-cover" />
+                <img src={draft.preview} alt="Frame preview" className="size-full object-contain" />
               ) : (
                 <span className="flex flex-col items-center gap-2 text-sm">
                   <ImagePlus size={28} /> Choose the frame image
                 </span>
               )}
+              {draft.preview && showGrid && <ThirdsGrid />}
               {draft.preview && (
                 <span className="absolute bottom-3 right-3 rounded-full bg-black/75 px-3 py-1.5 text-xs text-white">Change image</span>
               )}
             </button>
+            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
+              <span>Preview shows the 16:9 frame participants will see.</span>
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-zinc-300">
+                <input type="checkbox" checked={showGrid} onChange={(event) => setShowGrid(event.target.checked)} className="accent-white" />
+                Thirds grid
+              </label>
+            </div>
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
               className="sr-only"
               onChange={(event) => {
-                void pickImage(event.target.files?.[0]);
+                pickImage(event.target.files?.[0]);
                 event.target.value = "";
               }}
             />
@@ -427,6 +411,20 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
             </div>
           </form>
         </div>
+      )}
+
+      {cropSrc && (
+        <CropDialog
+          src={cropSrc}
+          aspect={16 / 9}
+          outWidth={1800}
+          quality={0.9}
+          onCancel={() => setCropSrc("")}
+          onDone={(dataUrl) => {
+            setDraft((current) => (current ? { ...current, image: dataUrl, preview: dataUrl } : current));
+            setCropSrc("");
+          }}
+        />
       )}
 
       {toDelete && (
