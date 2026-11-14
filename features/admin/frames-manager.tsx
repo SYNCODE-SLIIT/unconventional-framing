@@ -1,9 +1,9 @@
 "use client";
 
-import { ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Frame } from "@/types/domain";
 
@@ -54,6 +54,61 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
   const [toDelete, setToDelete] = useState<AdminFrame | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [items, setItems] = useState(frames);
+  const [notice, setNotice] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const startOrder = useRef<string[]>([]);
+
+  // Pick up changes after a refresh (add, edit, delete, or a saved reorder).
+  useEffect(() => {
+    setItems(frames);
+  }, [frames]);
+
+  const saveOrder = async (next: AdminFrame[]) => {
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/frames/order", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: next.map((item) => item.id) })
+      });
+      if (!response.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setItems(frames);
+      setNotice("Could not save the new order. It has been put back.");
+    }
+  };
+
+  const moveBy = (id: string, delta: number) => {
+    const from = items.findIndex((item) => item.id === id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setItems(next);
+    void saveOrder(next);
+  };
+
+  const dragOver = (overId: string) => {
+    if (!draggingId || draggingId === overId) return;
+    setItems((current) => {
+      const from = current.findIndex((item) => item.id === draggingId);
+      const to = current.findIndex((item) => item.id === overId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const dragEnd = () => {
+    const changed = items.some((item, index) => item.id !== startOrder.current[index]);
+    setDraggingId(null);
+    if (changed) void saveOrder(items);
+  };
   const fileRef = useRef<HTMLInputElement>(null);
 
   const openAdd = () => {
@@ -163,12 +218,41 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
         </p>
       )}
 
-      {frames.length === 0 ? (
+      {notice && (
+        <p role="alert" className="mt-6 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          {notice}
+        </p>
+      )}
+
+      {editable && items.length > 1 && (
+        <p className="mt-6 text-xs text-zinc-500">Drag a card by its handle to change the order, or use the arrows. The order is what participants see.</p>
+      )}
+
+      {items.length === 0 ? (
         <p className="py-20 text-center text-sm text-zinc-500">No frames yet. Add the first one.</p>
       ) : (
         <ul className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {frames.map((frame, position) => (
-            <li key={frame.id} className="overflow-hidden rounded-xl bg-[#111111] ring-1 ring-white/5">
+          {items.map((frame, position) => (
+            <li
+              key={frame.id}
+              draggable={editable}
+              onDragStart={(event) => {
+                startOrder.current = items.map((item) => item.id);
+                setDraggingId(frame.id);
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", frame.id);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                dragOver(frame.id);
+              }}
+              onDrop={(event) => event.preventDefault()}
+              onDragEnd={dragEnd}
+              className={cn(
+                "overflow-hidden rounded-xl bg-[#111111] ring-1 ring-white/5 transition",
+                draggingId === frame.id && "opacity-40 ring-white/40"
+              )}
+            >
               <div className="relative aspect-video bg-black">
                 <Image
                   src={frame.frameImage}
@@ -181,6 +265,33 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
                 <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-zinc-200">
                   #{position + 1}
                 </span>
+                {editable && items.length > 1 && (
+                  <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/70 p-1">
+                    <button
+                      type="button"
+                      onClick={() => moveBy(frame.id, -1)}
+                      disabled={position === 0}
+                      aria-label="Move earlier"
+                      title="Move earlier"
+                      className="grid size-7 place-items-center rounded-full text-zinc-200 transition hover:bg-white/15 disabled:opacity-30"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="grid size-7 cursor-grab place-items-center text-zinc-400 active:cursor-grabbing" aria-hidden title="Drag to reorder">
+                      <GripVertical size={16} />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => moveBy(frame.id, 1)}
+                      disabled={position === items.length - 1}
+                      aria-label="Move later"
+                      title="Move later"
+                      className="grid size-7 place-items-center rounded-full text-zinc-200 transition hover:bg-white/15 disabled:opacity-30"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="p-4">
                 <p className="truncate font-medium">{frame.movie}</p>

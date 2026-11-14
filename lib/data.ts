@@ -261,3 +261,18 @@ export async function getFrameImage(id: string) {
   if (!match) return null;
   return { type: match[1], bytes: Buffer.from(match[2], "base64") };
 }
+
+/** Saves a new frame order. `ids` must list every existing frame exactly once. */
+export async function reorderFrames(ids: string[]) {
+  const existing = await prisma.frame.findMany({ select: { id: true } });
+  const known = new Set(existing.map((item) => item.id));
+  if (ids.length !== known.size || new Set(ids).size !== ids.length || !ids.every((id) => known.has(id))) {
+    throw new Error("Order does not match the current frames");
+  }
+
+  // `sequence` is unique, so first park every frame on a temporary number, then set the final one.
+  await prisma.$transaction([
+    ...ids.map((id, index) => prisma.frame.update({ where: { id }, data: { sequence: 1_000_000 + index } })),
+    ...ids.map((id, index) => prisma.frame.update({ where: { id }, data: { sequence: index + 1 } }))
+  ]);
+}
