@@ -13,6 +13,7 @@ import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { RatingScale } from "@/features/frames/rating-scale";
 import { downloadReport } from "@/features/frames/report";
+import { ReviewAnswers } from "@/features/frames/review-answers";
 import { ThankYou } from "@/features/frames/thank-you";
 import { CATEGORIES, SCALE_POINTS, type Category, type ScaleConfig } from "@/lib/scale";
 import type { Frame } from "@/types/domain";
@@ -27,7 +28,7 @@ const answerKey = {
 
 export function FrameViewer({ frames: initialFrames, scale: initialScale }: { frames: Frame[]; scale: ScaleConfig }) {
   const { t, lang } = useLang();
-  const [stage, setStage] = useState<"landing" | "details" | "viewer" | "done">("landing");
+  const [stage, setStage] = useState<"landing" | "details" | "viewer" | "done" | "review">("landing");
   const [participant, setParticipant] = useState({ id: "", name: "", profession: "" });
   const [frames, setFrames] = useState(initialFrames);
   const [scale, setScale] = useState(initialScale);
@@ -225,13 +226,22 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
     );
   }
 
+  if (stage === "review") {
+    return (
+      <ReviewAnswers
+        frames={frames}
+        answers={savedAnswer.current}
+        ratings={responses}
+        scale={scale}
+        onBack={() => setStage("done")}
+      />
+    );
+  }
+
   if (stage === "done") {
     return (
       <ThankYou
-        onReview={() => {
-          setIndex(Math.max(0, frames.length - 1));
-          setStage("viewer");
-        }}
+        onReview={() => setStage("review")}
         onDownload={() =>
           downloadReport({
             participant,
