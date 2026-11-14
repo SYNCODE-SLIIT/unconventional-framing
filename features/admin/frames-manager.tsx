@@ -1,12 +1,12 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Play, Plus, Trash2, Upload, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Play, Plus, Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CropDialog } from "@/features/frames/crop-dialog";
 import { ThirdsGrid } from "@/features/frames/thirds-grid";
-import { MAX_VIDEO_BYTES, VIDEO_CHUNK, VIDEO_TYPES } from "@/lib/video";
+import { MAX_VIDEO_BYTES, VIDEO_CHUNK, VIDEO_TYPES, parseVideo } from "@/lib/video";
 import { cn } from "@/lib/utils";
 import type { Frame } from "@/types/domain";
 
@@ -20,12 +20,13 @@ type Draft = {
   dop: string;
   notes: string;
   isVideo: boolean;
+  localVideo: string; // address of the file just chosen on this computer, used only for the preview
   video: string; // video link, or the uploaded file's address
   image: string; // data URL when a new file was chosen
   preview: string; // what to show in the form
 };
 
-const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: "", isVideo: false, video: "", image: "", preview: "" };
+const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: "", isVideo: false, localVideo: "", video: "", image: "", preview: "" };
 
 const inputClass =
   "h-11 w-full rounded-lg border border-white/15 bg-zinc-900 px-3.5 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:ring-2 focus:ring-white/20";
@@ -95,6 +96,7 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
   };
   const fileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLVideoElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
 
   const openAdd = () => {
@@ -112,6 +114,7 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
       dop: frame.dop,
       notes: frame.notes ?? "",
       isVideo: Boolean(frame.video),
+      localVideo: "",
       video: frame.video ?? "",
       image: "",
       preview: frame.frameImage
@@ -137,6 +140,7 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
 
     setError("");
     setProgress(0);
+    setDraft((current) => (current ? { ...current, localVideo: URL.createObjectURL(file) } : current));
     try {
       // The file is sent in small pieces, so big videos work within the host's request size limit.
       const created = await fetch("/api/admin/videos", {
@@ -172,6 +176,27 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
       setError(caught instanceof Error ? caught.message : "Could not upload the video.");
     } finally {
       setProgress(null);
+    }
+  };
+
+  // Takes whatever frame the preview is paused on and offers it as the cover (cropped to 16:9 next).
+  const captureCover = () => {
+    const video = previewRef.current;
+    if (!video || !video.videoWidth) {
+      setError("Wait for the video to load, then pause on the frame you want.");
+      return;
+    }
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas unavailable");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setError("");
+      setCropSrc(canvas.toDataURL("image/jpeg", 0.92));
+    } catch {
+      setError("This video's host doesn't allow picking a frame. Upload the video here, or choose a cover picture instead.");
     }
   };
 
@@ -443,8 +468,33 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
                     event.target.value = "";
                   }}
                 />
+                {(() => {
+                  const previewSrc = draft.localVideo || (draft.video && parseVideo(draft.video).kind === "file" ? draft.video : "");
+                  if (!previewSrc) return null;
+                  return (
+                    <div className="space-y-2 pt-1">
+                      <video
+                        ref={previewRef}
+                        key={previewSrc}
+                        src={previewSrc}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg bg-black"
+                      />
+                      <button
+                        type="button"
+                        onClick={captureCover}
+                        className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-black transition hover:bg-zinc-200"
+                      >
+                        <Camera size={15} /> Use this frame as the cover
+                      </button>
+                      <p className="text-xs text-zinc-500">Pause on the frame you want, then press the button. You can crop it next.</p>
+                    </div>
+                  );
+                })()}
                 <p className="text-xs text-zinc-500">Uploads: MP4, WebM or MOV, up to 150 MB. Larger files are better added as a YouTube link.</p>
-                <p className="text-xs text-zinc-500">Choose a cover picture below. It shows while the video loads and in the participant&apos;s results.</p>
+                <p className="text-xs text-zinc-500">The cover shows while the video loads and in the participant&apos;s results. Pick a frame from the video above, or choose a picture below.</p>
               </div>
             )}
 
