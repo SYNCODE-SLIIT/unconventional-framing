@@ -9,10 +9,8 @@ import { cn } from "@/lib/utils";
 export const participantRoles = [
   { value: "Film Director", label: "Film Director", hint: "Directs films or episodes" },
   { value: "Cinematographer", label: "Cinematographer", hint: "Director of photography / camera" },
-  { value: "Film Editor", label: "Film Editor", hint: "Edits picture and sound" },
-  { value: "Film Critic", label: "Film Critic", hint: "Writes or reviews about film" },
-  { value: "Film Academic / Lecturer", label: "Academic / Lecturer", hint: "Teaches or researches film" },
-  { value: "Film Student", label: "Film Student", hint: "Studying film or media" }
+  { value: "Academic / Lecturer", label: "Academic / Lecturer", hint: "Teaches or researches film" },
+  { value: "Film Student / Young Filmmaker", label: "Film Student / Young Filmmaker", hint: "Studying film or making early work" }
 ];
 
 /** Grabs the current camera frame (mirrored, like the preview) as an image URL. */

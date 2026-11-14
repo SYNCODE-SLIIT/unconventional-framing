@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Aperture, Camera, Clapperboard, GraduationCap, NotebookPen, PenLine, Scissors, Star, UserRound } from "lucide-react";
+import { Aperture, Camera, Clapperboard, GraduationCap, NotebookPen, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -147,83 +147,6 @@ function CinematographerCard({ name, avatar, onPhotoClick }: Props) {
   );
 }
 
-/* Editor: NLE timeline. Grey clips on tracks with a white playhead. */
-function EditorCard({ name, avatar, onPhotoClick }: Props) {
-  const tracks: Array<Array<[number, number, string]>> = [
-    [[0, 34, "bg-zinc-200"], [38, 22, "bg-zinc-500"], [64, 30, "bg-zinc-300"]],
-    [[8, 26, "bg-zinc-500"], [38, 40, "bg-zinc-200"], [82, 14, "bg-zinc-400"]],
-    [[0, 52, "bg-zinc-400"], [56, 38, "bg-zinc-600"]]
-  ];
-  return (
-    <div className={cn("overflow-hidden rounded-xl border border-white/20 bg-[#0d0d0d]", shadow)}>
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5 text-[9px] uppercase tracking-[0.3em] text-zinc-300">
-        <span className="inline-flex items-center gap-2">
-          <Scissors size={13} /> Film Editor
-        </span>
-        <span className="font-mono text-zinc-500">00:00:00:00</span>
-      </div>
-      <div className="p-4 pt-3">
-        <Portrait
-          avatar={avatar}
-          onClick={onPhotoClick}
-          className="h-[var(--photo-h)] rounded-md ring-1 ring-white/20"
-          emptyClass="bg-zinc-900 text-zinc-300"
-        />
-        <Name value={name} className="mt-4 text-2xl font-bold leading-tight text-white" />
-        <p className="mt-1.5 text-[11px] uppercase tracking-[0.25em] text-zinc-400">Where the story is made</p>
-        <div className="relative mt-4 space-y-1.5 rounded-md bg-black p-2 ring-1 ring-white/10" aria-hidden>
-          {tracks.map((track, row) => (
-            <div key={row} className="relative h-2.5">
-              {track.map(([left, width, color]) => (
-                <span key={left} className={cn("absolute top-0 h-2.5 rounded-[2px]", color)} style={{ left: `${left}%`, width: `${width}%` }} />
-              ))}
-            </div>
-          ))}
-          <span className="absolute inset-y-0 left-[46%] w-px bg-white shadow-[0_0_8px_#fff]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Critic: dark editorial review card. Serif name, rating row, outlined "Reviewed" mark. */
-function CriticCard({ name, avatar, onPhotoClick }: Props) {
-  return (
-    <div className={cn("relative overflow-hidden rounded-xl border border-white/20 bg-[linear-gradient(160deg,#1c1c1e_0%,#09090a_70%)]", shadow)}>
-      <div className="flex items-center justify-between px-4 pt-4 text-[9px] uppercase tracking-[0.3em] text-zinc-300">
-        <span className="inline-flex items-center gap-2">
-          <PenLine size={13} /> The Critic&apos;s Column
-        </span>
-        <span className="font-mono">Vol. I</span>
-      </div>
-      <div className="relative p-4 pt-2.5">
-        <div className="relative">
-          <Portrait
-            avatar={avatar}
-            onClick={onPhotoClick}
-            className="h-[var(--photo-h)] rounded-sm"
-            imageClass="grayscale contrast-125"
-            emptyClass="bg-zinc-900 text-zinc-300"
-          />
-          <span className="pointer-events-none absolute bottom-3 right-3 -rotate-6 rounded-sm border border-white/80 bg-black/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-white backdrop-blur-sm">
-            Reviewed
-          </span>
-        </div>
-        <Name value={name} className="mt-4 font-serif text-2xl font-semibold leading-tight text-white" />
-        <p className="mt-1.5 text-[11px] uppercase tracking-[0.25em] text-zinc-400">Film Critic</p>
-        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
-          <p className="font-serif text-[11px] italic text-zinc-500">&ldquo;Every frame is an argument.&rdquo;</p>
-          <span className="flex gap-0.5 text-zinc-300" aria-hidden>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Star key={i} size={11} fill="currentColor" />
-            ))}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* Academic: formal credential. Double frame, serif, arched portrait, centred. */
 function AcademicCard({ name, avatar, onPhotoClick }: Props) {
   return (
@@ -268,7 +191,7 @@ function StudentCard({ name, avatar, onPhotoClick }: Props) {
             emptyClass="bg-zinc-100 text-zinc-500"
           />
           <div className="mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-zinc-800">
-            <NotebookPen size={15} /> Film Student
+            <NotebookPen size={15} /> Student / Young Filmmaker
           </div>
           <p className="mt-0.5 text-center text-[11px] text-zinc-500">Always learning, always watching.</p>
         </div>
@@ -296,10 +219,8 @@ function BlankCard({ name, avatar, onPhotoClick }: Props) {
 const cards: Record<string, (props: Props) => ReactNode> = {
   "Film Director": DirectorCard,
   Cinematographer: CinematographerCard,
-  "Film Editor": EditorCard,
-  "Film Critic": CriticCard,
-  "Film Academic / Lecturer": AcademicCard,
-  "Film Student": StudentCard
+  "Academic / Lecturer": AcademicCard,
+  "Film Student / Young Filmmaker": StudentCard
 };
 
 export function RoleCard({ name, role, avatar, onPhotoClick }: Props) {

@@ -8,7 +8,7 @@ export function LandingHero({ onBegin }: { onBegin: () => void }) {
     <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.07),transparent_60%)]" />
 
-      <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+      <section className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <motion.p
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -22,10 +22,11 @@ export function LandingHero({ onBegin }: { onBegin: () => void }) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
-          className="mt-8 text-balance text-3xl font-semibold leading-[1.15] sm:text-5xl"
+          className="mt-8 text-balance text-2xl font-semibold leading-[1.2] md:text-3xl lg:text-[2.1rem]"
         >
           Reading and Evaluating the Aesthetics of{" "}
-          <span className="italic text-zinc-300">Unconventional Framing</span> in Contemporary Sri Lankan Cinema
+          <span className="italic text-zinc-300">Unconventional Framing</span>
+          <br className="hidden lg:block" /> in Contemporary Sri Lankan Cinema
         </motion.h1>
 
         <motion.p
