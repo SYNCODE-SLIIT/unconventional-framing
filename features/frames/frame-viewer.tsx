@@ -9,7 +9,7 @@ import { FrameMedia } from "@/features/frames/frame-media";
 import { ParticipantForm } from "@/features/frames/participant-form";
 import { StudyTour } from "@/features/frames/study-tour";
 import { ThirdsGrid } from "@/features/frames/thirds-grid";
-import { useLang } from "@/lib/i18n";
+import { LanguageSwitch, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { RatingScale } from "@/features/frames/rating-scale";
 import { downloadReport } from "@/features/frames/report";
@@ -401,7 +401,8 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
                   </IconButton>
                 </div>
 
-                <div data-tour="tools" className="flex gap-2">
+                <div data-tour="tools" className="flex items-center gap-2">
+                  <LanguageSwitch inline />
                   <IconButton label={t("showGuide")} onClick={() => setTourOpen(true)}>
                     <CircleHelp size={16} />
                   </IconButton>

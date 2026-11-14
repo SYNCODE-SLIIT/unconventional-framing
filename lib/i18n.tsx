@@ -106,7 +106,7 @@ const en = {
   tour4Title: "Move between frames",
   tour4Body: "Use the arrows, or the left and right arrow keys, to go back or skip ahead.",
   tour5Title: "Helpful tools",
-  tour5Body: "Show a rule-of-thirds grid, go fullscreen, or reopen this guide any time with the ? button."
+  tour5Body: "Switch the language, show a rule-of-thirds grid, go fullscreen, or reopen this guide any time with the ? button."
 };
 
 export type Key = keyof typeof en;
@@ -206,7 +206,7 @@ const si: Record<Key, string> = {
   tour4Title: "රාමු අතර ගමන් කරන්න",
   tour4Body: "ඊතල බොත්තම් හෝ වම් සහ දකුණු ඊතල යතුරු භාවිතා කර ආපසු යන්න හෝ ඉදිරියට යන්න.",
   tour5Title: "ප්‍රයෝජනවත් මෙවලම්",
-  tour5Body: "තුනෙන් එකේ ජාලකය පෙන්වන්න, පූර්ණ තිරයට යන්න, හෝ ? බොත්තමෙන් මෙම මාර්ගෝපදේශය නැවත විවෘත කරන්න."
+  tour5Body: "භාෂාව මාරු කරන්න, තුනෙන් එකේ ජාලකය පෙන්වන්න, පූර්ණ තිරයට යන්න, හෝ ? බොත්තමෙන් මෙම මාර්ගෝපදේශය නැවත විවෘත කරන්න."
 };
 
 const dictionary: Record<Lang, Record<Key, string>> = { en, si };
@@ -251,7 +251,7 @@ export function useLang() {
 }
 
 /** Small English / Sinhala switch for the top-right corner. */
-export function LanguageSwitch({ className }: { className?: string }) {
+export function LanguageSwitch({ className, inline = false }: { className?: string; inline?: boolean }) {
   const { lang, setLang } = useLang();
   const option = (value: Lang, label: string) => (
     <button
@@ -259,7 +259,8 @@ export function LanguageSwitch({ className }: { className?: string }) {
       onClick={() => setLang(value)}
       aria-pressed={lang === value}
       className={cn(
-        "rounded-full px-3.5 py-1.5 text-sm transition",
+        "rounded-full text-sm transition",
+        inline ? "h-9 px-3" : "px-3.5 py-1.5",
         lang === value ? "bg-white text-black" : "text-zinc-300 hover:text-white"
       )}
     >
@@ -271,7 +272,11 @@ export function LanguageSwitch({ className }: { className?: string }) {
     <div
       role="group"
       aria-label="Language"
-      className={cn("fixed right-4 top-4 z-40 flex items-center gap-0.5 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur sm:right-6 sm:top-6", className)}
+      className={cn(
+        "flex items-center gap-0.5 rounded-full border border-white/15 bg-black/60 p-0.5 backdrop-blur",
+        !inline && "fixed right-4 top-4 z-40 p-1 sm:right-6 sm:top-6",
+        className
+      )}
     >
       {option("en", "EN")}
       {option("si", "සිං")}
