@@ -4,6 +4,8 @@ export type Frame = {
   id: string;
   movie: string;
   frameImage: string;
+  /** When set, the frame is a video; frameImage is its cover. */
+  video?: string;
   timecode: string;
   director: string;
   dop: string;

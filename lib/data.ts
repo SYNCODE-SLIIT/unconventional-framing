@@ -44,6 +44,7 @@ export async function getFrames(): Promise<Frame[]> {
     id: row.id,
     movie: row.movie,
     frameImage: frameImageUrl(row),
+    video: row.video ?? undefined,
     timecode: row.timecode,
     director: row.director,
     dop: row.dop,
@@ -281,6 +282,8 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 export type FrameInput = {
   movie: string;
   frameImage: string;
+  /** A video link, or null to turn a video frame back into a plain picture. */
+  video?: string | null;
   timecode: string;
   director: string;
   dop: string;
@@ -299,6 +302,7 @@ export async function getAdminFrames(): Promise<Array<Frame & { responses: numbe
     id: row.id,
     movie: row.movie,
     frameImage: frameImageUrl(row),
+    video: row.video ?? undefined,
     timecode: row.timecode,
     director: row.director,
     dop: row.dop,

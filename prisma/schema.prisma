@@ -48,7 +48,8 @@ model Participant {
 model Frame {
   id          String       @id @default(auto()) @map("_id") @db.ObjectId
   movie       String
-  frameImage  String
+  frameImage  String // the picture, or the cover picture when the frame is a video
+  video       String? // link to a video (YouTube or a direct file); when set, participants watch this instead
   timecode    String
   director    String
   dop         String

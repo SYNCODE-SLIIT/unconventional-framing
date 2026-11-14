@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, ImagePlus, Pencil, Play, Plus, Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -18,16 +18,18 @@ type Draft = {
   director: string;
   dop: string;
   notes: string;
+  isVideo: boolean;
+  video: string; // video link, or the uploaded file's address
   image: string; // data URL when a new file was chosen
   preview: string; // what to show in the form
 };
 
-const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: "", image: "", preview: "" };
+const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: "", isVideo: false, video: "", image: "", preview: "" };
 
 const inputClass =
   "h-11 w-full rounded-lg border border-white/15 bg-zinc-900 px-3.5 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:ring-2 focus:ring-white/20";
 
-export function FramesManager({ frames, editable }: { frames: AdminFrame[]; editable: boolean }) {
+export function FramesManager({ frames, editable, uploadReady }: { frames: AdminFrame[]; editable: boolean; uploadReady: boolean }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<AdminFrame | null>(null);
@@ -91,6 +93,8 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
     if (changed) void saveOrder(items);
   };
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
 
   const openAdd = () => {
     setError("");
@@ -106,6 +110,8 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
       director: frame.director,
       dop: frame.dop,
       notes: frame.notes ?? "",
+      isVideo: Boolean(frame.video),
+      video: frame.video ?? "",
       image: "",
       preview: frame.frameImage
     });
@@ -117,11 +123,42 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
     setCropSrc(URL.createObjectURL(file));
   };
 
+  const uploadVideo = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setError("Please choose a video file (MP4 or WebM works best).");
+      return;
+    }
+    setError("");
+    setProgress(0);
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/admin/video-upload",
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage))
+      });
+      setDraft((current) => (current ? { ...current, video: blob.url } : current));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not upload the video.");
+    } finally {
+      setProgress(null);
+    }
+  };
+
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft) return;
     if (!draft.id && !draft.image) {
-      setError("Please choose an image for the frame.");
+      setError(draft.isVideo ? "Please choose a cover picture for the video." : "Please choose an image for the frame.");
+      return;
+    }
+    if (draft.isVideo && !draft.video.trim()) {
+      setError("Add a video link or upload a video file.");
+      return;
+    }
+    if (progress !== null) {
+      setError("Please wait for the video to finish uploading.");
       return;
     }
 
@@ -133,6 +170,7 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
       director: draft.director,
       dop: draft.dop,
       notes: draft.notes || undefined,
+      video: draft.isVideo ? draft.video.trim() : null,
       ...(draft.image ? { frameImage: draft.image } : {})
     };
 
@@ -241,6 +279,11 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
                 <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-zinc-200">
                   #{position + 1}
                 </span>
+                {frame.video && (
+                  <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-xs text-zinc-200">
+                    <Play size={11} fill="currentColor" /> Video
+                  </span>
+                )}
                 {editable && items.length > 1 && (
                   <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/70 p-1">
                     <button
@@ -321,6 +364,63 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
               </button>
             </div>
 
+            <div role="group" aria-label="Frame type" className="mb-4 inline-flex gap-0.5 rounded-full border border-white/15 p-1">
+              {([false, true] as const).map((video) => (
+                <button
+                  key={String(video)}
+                  type="button"
+                  aria-pressed={draft.isVideo === video}
+                  onClick={() => setDraft({ ...draft, isVideo: video })}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm transition",
+                    draft.isVideo === video ? "bg-white text-black" : "text-zinc-300 hover:text-white"
+                  )}
+                >
+                  {video ? "Video" : "Picture"}
+                </button>
+              ))}
+            </div>
+
+            {draft.isVideo && (
+              <div className="mb-4 space-y-2 rounded-lg border border-white/10 bg-zinc-900/60 p-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm text-zinc-300">Video link</span>
+                  <input
+                    className={inputClass}
+                    value={draft.video}
+                    onChange={(e) => setDraft({ ...draft, video: e.target.value })}
+                    placeholder="YouTube link, or a direct link to an .mp4 file"
+                    inputMode="url"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => videoFileRef.current?.click()}
+                    disabled={!uploadReady || progress !== null}
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 px-4 text-sm text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Upload size={15} /> {progress !== null ? `Uploading ${progress}%` : "Upload a video file"}
+                  </button>
+                  {!uploadReady && (
+                    <span className="text-xs text-zinc-500">File upload needs a Blob store connected in Vercel. A link works without it.</span>
+                  )}
+                  {draft.video && progress === null && <span className="text-xs text-zinc-400">Video added</span>}
+                </div>
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void uploadVideo(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <p className="text-xs text-zinc-500">Choose a cover picture below. It shows while the video loads and in the participant&apos;s results.</p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -333,7 +433,7 @@ export function FramesManager({ frames, editable }: { frames: AdminFrame[]; edit
                 <img src={draft.preview} alt="Frame preview" className="size-full object-contain" />
               ) : (
                 <span className="flex flex-col items-center gap-2 text-sm">
-                  <ImagePlus size={28} /> Choose the frame image
+                  <ImagePlus size={28} /> {draft.isVideo ? "Choose the cover picture" : "Choose the frame image"}
                 </span>
               )}
               {draft.preview && showGrid && <ThirdsGrid />}

@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Bookmark, CircleHelp, Grid3x3, Maximize2, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { LandingHero } from "@/features/landing/landing-hero";
+import { FrameMedia } from "@/features/frames/frame-media";
 import { ParticipantForm } from "@/features/frames/participant-form";
 import { StudyTour } from "@/features/frames/study-tour";
 import { ThirdsGrid } from "@/features/frames/thirds-grid";
@@ -160,7 +160,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
       // Only act in the viewer, never while the guide is open or while typing.
       if (stage !== "viewer" || tourOpen) return;
       const target = event.target as HTMLElement | null;
-      if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)) return;
+      if (target && (["INPUT", "TEXTAREA", "SELECT", "VIDEO"].includes(target.tagName) || target.isContentEditable)) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       if (!visible) {
@@ -282,15 +282,7 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
             className="relative shadow-[0_40px_120px_rgba(0,0,0,0.65)]"
             style={{ aspectRatio: "16 / 9", width: "min(100cqw, calc(100cqh * 16 / 9))" }}
           >
-            <Image
-              priority
-              fill
-              unoptimized={frame.frameImage.startsWith("/api/") || frame.frameImage.startsWith("data:")}
-              src={frame.frameImage}
-              alt={`${frame.movie} frame at ${frame.timecode}`}
-              className="object-contain"
-              sizes="100vw"
-            />
+            <FrameMedia frame={frame} priority />
             {showThirds && <ThirdsGrid />}
           </div>
         </div>

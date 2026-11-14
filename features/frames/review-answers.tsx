@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import Image from "next/image";
 import { LanguageSwitch, useLang } from "@/lib/i18n";
 import type { Category, ScaleConfig } from "@/lib/scale";
@@ -62,6 +62,11 @@ export function ReviewAnswers({
                   className="object-contain"
                 />
                 <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs text-zinc-200">#{index + 1}</span>
+                {frame.video && (
+                  <span className="absolute right-3 top-3 grid size-7 place-items-center rounded-full bg-black/70 text-white" title="Video">
+                    <Play size={13} fill="currentColor" />
+                  </span>
+                )}
               </div>
               <div className="p-4">
                 <p className="truncate font-medium">{frame.movie}</p>
