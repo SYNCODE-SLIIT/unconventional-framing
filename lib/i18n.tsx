@@ -68,6 +68,7 @@ const en = {
   director: "Director",
   dop: "DOP",
   saved: "saved",
+  rated: "Rated",
   saveFailed: "Could not save. Please try again.",
   noFrames: "No frames to rate right now",
   noFramesHint: "Please check back in a little while.",
@@ -91,7 +92,7 @@ const en = {
   tour2Body: "The film, timecode, director and cinematographer appear here, along with your progress through the frames.",
   tour3Title: "Give your answer",
   tour3Body:
-    "Choose Unconventional, Conventional or Not Sure. Shortcut keys: 1, 2 and 3. Your answer is saved and the next frame opens.",
+    "Pick a number from 1 to 5. The words under each number explain what it means. Shortcut keys: 1 to 5. Your answer is saved and the next frame opens.",
   tour4Title: "Move between frames",
   tour4Body: "Use the arrows, or the left and right arrow keys, to go back or skip ahead.",
   tour5Title: "Helpful tools",
@@ -158,6 +159,7 @@ const si: Record<Key, string> = {
   director: "අධ්‍යක්ෂ",
   dop: "ඡායාරූප අධ්‍යක්ෂ",
   saved: "සුරැකිණි",
+  rated: "ඇගයුම",
   saveFailed: "සුරැකීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
   noFrames: "දැනට ඇගයීමට රාමු නොමැත",
   noFramesHint: "කරුණාකර මද වේලාවකින් නැවත පරීක්ෂා කරන්න.",
@@ -180,7 +182,7 @@ const si: Record<Key, string> = {
   tour2Body: "චිත්‍රපටය, කාලකේතය, අධ්‍යක්ෂක සහ ඡායාරූප අධ්‍යක්ෂ මෙහි පෙනේ. ඔබේ ප්‍රගතියද මෙහි දැක්වේ.",
   tour3Title: "ඔබේ පිළිතුර දෙන්න",
   tour3Body:
-    "අසාම්ප්‍රදායික, සාම්ප්‍රදායික හෝ විශ්වාස නැත යන්නෙන් එකක් තෝරන්න. කෙටි යතුරු: 1, 2 සහ 3. ඔබේ පිළිතුර සුරැකී ඊළඟ රාමුව විවෘත වේ.",
+    "1 සිට 5 දක්වා අංකයක් තෝරන්න. එක් එක් අංකය යට ඇති වචන එහි තේරුම පැහැදිලි කරයි. කෙටි යතුරු: 1 සිට 5 දක්වා. ඔබේ පිළිතුර සුරැකී ඊළඟ රාමුව විවෘත වේ.",
   tour4Title: "රාමු අතර ගමන් කරන්න",
   tour4Body: "ඊතල බොත්තම් හෝ වම් සහ දකුණු ඊතල යතුරු භාවිතා කර ආපසු යන්න හෝ ඉදිරියට යන්න.",
   tour5Title: "ප්‍රයෝජනවත් මෙවලම්",

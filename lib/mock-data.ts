@@ -1,4 +1,4 @@
-import type { Annotation, Frame, Statistics } from "@/types/domain";
+import type { Annotation, Frame } from "@/types/domain";
 
 export const frames: Frame[] = [
   {
@@ -34,47 +34,3 @@ export const frames: Frame[] = [
 ];
 
 export const annotations = new Map<string, Annotation>();
-
-export function calculateStatistics(): Statistics {
-  const totalFrames = frames.length;
-  const annotationList = [...annotations.values()];
-  const totalAnnotations = annotationList.length;
-  const byAnswer = annotationList.reduce(
-    (acc, annotation) => {
-      acc[annotation.answer] += 1;
-      return acc;
-    },
-    { CONVENTIONAL: 0, UNCONVENTIONAL: 0, NOT_SURE: 0 }
-  );
-
-  const percent = (value: number) =>
-    totalAnnotations === 0 ? 0 : Math.round((value / totalAnnotations) * 100);
-
-  return {
-    participants: 0,
-    professions: [],
-    totalFrames,
-    totalAnnotations,
-    completionPercent:
-      totalFrames === 0 ? 0 : Math.round((totalAnnotations / totalFrames) * 100),
-    conventionalPercent: percent(byAnswer.CONVENTIONAL),
-    unconventionalPercent: percent(byAnswer.UNCONVENTIONAL),
-    notSurePercent: percent(byAnswer.NOT_SURE),
-    movies: [...new Set(frames.map((frame) => frame.movie))].map((movie) => {
-      const movieFrames = frames.filter((frame) => frame.movie === movie);
-      const movieAnnotations = annotationList.filter((annotation) =>
-        movieFrames.some((frame) => frame.id === annotation.frameId)
-      );
-
-      return {
-        movie,
-        frames: movieFrames.length,
-        annotations: movieAnnotations.length,
-        conventional: movieAnnotations.filter((item) => item.answer === "CONVENTIONAL").length,
-        unconventional: movieAnnotations.filter((item) => item.answer === "UNCONVENTIONAL").length,
-        notSure: movieAnnotations.filter((item) => item.answer === "NOT_SURE").length
-      };
-    })
-  };
-}
-

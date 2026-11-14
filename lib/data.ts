@@ -1,6 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { annotations as mockAnnotations, calculateStatistics as mockStatistics, frames as mockFrames } from "@/lib/mock-data";
-import type { AnnotationAnswer, Frame, ParticipantDetail, ParticipantSummary, Statistics } from "@/types/domain";
+import { annotations as mockAnnotations, frames as mockFrames } from "@/lib/mock-data";
+import { SCALE_POINTS, defaultScale, normalizeScale, type ScaleConfig } from "@/lib/scale";
+import type { Frame, ParticipantDetail, ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 /**
  * Data access layer. Uses MongoDB (via Prisma) when DATABASE_URL is set,
@@ -8,10 +10,31 @@ import type { AnnotationAnswer, Frame, ParticipantDetail, ParticipantSummary, St
  */
 export const hasDatabase = Boolean(process.env.DATABASE_URL);
 
+const objectId = /^[a-f\d]{24}$/i;
+
 /** Uploaded frames are stored in the database; they are served from an image route instead of inlined. */
 function frameImageUrl(row: { id: string; frameImage: string; updatedAt: Date }) {
   return row.frameImage.startsWith("data:") ? `/api/frames/${row.id}/image?v=${row.updatedAt.getTime()}` : row.frameImage;
 }
+
+// ---------- Rating helpers ----------
+
+function emptyCounts(): RatingCounts {
+  return Array.from({ length: SCALE_POINTS }, () => 0);
+}
+
+function countRatings(ratings: number[]): RatingCounts {
+  const counts = emptyCounts();
+  for (const rating of ratings) if (rating >= 1 && rating <= SCALE_POINTS) counts[rating - 1] += 1;
+  return counts;
+}
+
+function average(ratings: number[]) {
+  if (ratings.length === 0) return 0;
+  return Math.round((ratings.reduce((sum, value) => sum + value, 0) / ratings.length) * 10) / 10;
+}
+
+// ---------- Study: frames, scale, participants, ratings ----------
 
 export async function getFrames(): Promise<Frame[]> {
   if (!hasDatabase) return mockFrames;
@@ -29,21 +52,33 @@ export async function getFrames(): Promise<Frame[]> {
   }));
 }
 
+export async function getScale(): Promise<ScaleConfig> {
+  if (!hasDatabase) return defaultScale;
+  try {
+    const row = await prisma.setting.findUnique({ where: { key: "scale" } });
+    return normalizeScale(row?.value);
+  } catch (error) {
+    console.error("Could not load the rating scale", error);
+    return defaultScale;
+  }
+}
+
+export async function saveScale(scale: ScaleConfig) {
+  const value = normalizeScale(scale) as unknown as Prisma.InputJsonValue;
+  await prisma.setting.upsert({ where: { key: "scale" }, create: { key: "scale", value }, update: { value } });
+}
+
 export async function createParticipant(input: { name: string; profession: string; avatar?: string }) {
   if (!hasDatabase) return { id: `local-${Date.now()}`, ...input };
   return prisma.participant.create({ data: input });
 }
 
-export async function saveAnnotation(input: {
-  participantId: string;
-  frameId: string;
-  answer: AnnotationAnswer;
-  notes?: string;
-}) {
+export async function saveAnnotation(input: { participantId: string; frameId: string; rating: number; notes?: string }) {
   if (!hasDatabase) {
     const annotation = {
+      participantId: input.participantId,
       frameId: input.frameId,
-      answer: input.answer,
+      rating: input.rating,
       notes: input.notes,
       timestamp: new Date().toISOString()
     };
@@ -54,71 +89,63 @@ export async function saveAnnotation(input: {
   const row = await prisma.annotation.upsert({
     where: { participantId_frameId: { participantId: input.participantId, frameId: input.frameId } },
     create: input,
-    update: { answer: input.answer, notes: input.notes, timestamp: new Date() }
+    update: { rating: input.rating, notes: input.notes, timestamp: new Date() }
   });
-  return { frameId: row.frameId, answer: row.answer, notes: row.notes ?? undefined, timestamp: row.timestamp.toISOString() };
+  return { frameId: row.frameId, rating: row.rating ?? input.rating, notes: row.notes ?? undefined, timestamp: row.timestamp.toISOString() };
 }
 
+// ---------- Admin: analytics ----------
+
 export async function getStatistics(): Promise<Statistics> {
-  if (!hasDatabase) return mockStatistics();
+  const [frames, rows, participants] = hasDatabase
+    ? await Promise.all([
+        prisma.frame.findMany({ select: { id: true, movie: true } }),
+        prisma.annotation.findMany({ select: { frameId: true, rating: true, participantId: true } }),
+        prisma.participant.findMany({ select: { id: true, profession: true } })
+      ])
+    : [
+        mockFrames.map((frame) => ({ id: frame.id, movie: frame.movie })),
+        [...mockAnnotations.values()].map((item) => ({ frameId: item.frameId, rating: item.rating as number | null, participantId: item.participantId ?? "" })),
+        [] as Array<{ id: string; profession: string }>
+      ];
 
-  const [frames, rows, participants] = await Promise.all([
-    prisma.frame.findMany({ select: { id: true, movie: true } }),
-    prisma.annotation.findMany({ select: { frameId: true, answer: true, participantId: true } }),
-    prisma.participant.findMany({ select: { id: true, profession: true } })
-  ]);
-
-  const count = (answer: AnnotationAnswer, list = rows) => list.filter((row) => row.answer === answer).length;
-  const percent = (value: number) => (rows.length === 0 ? 0 : Math.round((value / rows.length) * 100));
-  const answeredFrames = new Set(rows.map((row) => row.frameId)).size;
-
+  // Older responses used a three-way answer and have no rating; they are left out of the numbers.
+  const rated = rows.filter((row): row is typeof row & { rating: number } => typeof row.rating === "number");
+  const ratings = rated.map((row) => row.rating);
+  const answeredFrames = new Set(rated.map((row) => row.frameId)).size;
   const professionOf = new Map(participants.map((item) => [item.id, item.profession]));
 
   return {
     participants: participants.length,
-    professions: [...new Set(participants.map((item) => item.profession))].map((profession) => {
-      const people = participants.filter((item) => item.profession === profession);
-      const mine = rows.filter((row) => professionOf.get(row.participantId) === profession);
-      return {
-        profession,
-        participants: people.length,
-        conventional: count("CONVENTIONAL", mine),
-        unconventional: count("UNCONVENTIONAL", mine),
-        notSure: count("NOT_SURE", mine)
-      };
-    }),
     totalFrames: frames.length,
-    totalAnnotations: rows.length,
+    totalAnnotations: rated.length,
     completionPercent: frames.length === 0 ? 0 : Math.round((answeredFrames / frames.length) * 100),
-    conventionalPercent: percent(count("CONVENTIONAL")),
-    unconventionalPercent: percent(count("UNCONVENTIONAL")),
-    notSurePercent: percent(count("NOT_SURE")),
+    averageRating: average(ratings),
+    distribution: countRatings(ratings),
     movies: [...new Set(frames.map((frame) => frame.movie))].map((movie) => {
       const ids = new Set(frames.filter((frame) => frame.movie === movie).map((frame) => frame.id));
-      const movieRows = rows.filter((row) => ids.has(row.frameId));
-      return {
-        movie,
-        frames: ids.size,
-        annotations: movieRows.length,
-        conventional: count("CONVENTIONAL", movieRows),
-        unconventional: count("UNCONVENTIONAL", movieRows),
-        notSure: count("NOT_SURE", movieRows)
-      };
+      const mine = rated.filter((row) => ids.has(row.frameId)).map((row) => row.rating);
+      return { movie, frames: ids.size, annotations: mine.length, average: average(mine), counts: countRatings(mine) };
+    }),
+    professions: [...new Set(participants.map((item) => item.profession))].map((profession) => {
+      const people = participants.filter((item) => item.profession === profession);
+      const mine = rated.filter((row) => professionOf.get(row.participantId) === profession).map((row) => row.rating);
+      return { profession, participants: people.length, annotations: mine.length, average: average(mine), counts: countRatings(mine) };
     })
   };
 }
 
-function summarize(answers: AnnotationAnswer[]) {
-  if (answers.length === 0) return "Not annotated";
-  const count = (answer: AnnotationAnswer) => answers.filter((item) => item === answer).length;
-  return `${answers.length} total - Unconventional ${count("UNCONVENTIONAL")}, Conventional ${count("CONVENTIONAL")}, Not sure ${count("NOT_SURE")}`;
+function summarize(ratings: number[]) {
+  if (ratings.length === 0) return "Not rated";
+  const counts = countRatings(ratings);
+  return `${ratings.length} ratings, average ${average(ratings)} (${counts.map((count, index) => `${index + 1}: ${count}`).join(", ")})`;
 }
 
 export async function getExportRows() {
   if (!hasDatabase) {
     return mockFrames.map((frame) => {
       const found = [...mockAnnotations.values()].filter((item) => item.frameId === frame.id);
-      return { ...frame, summary: summarize(found.map((item) => item.answer)) };
+      return { ...frame, summary: summarize(found.map((item) => item.rating)) };
     });
   }
 
@@ -127,52 +154,49 @@ export async function getExportRows() {
     include: { annotations: { include: { participant: true } } }
   });
 
-  return rows.map((frame) => ({
-    id: frame.id,
-    movie: frame.movie,
-    frameImage: frameImageUrl(frame),
-    timecode: frame.timecode,
-    director: frame.director,
-    dop: frame.dop,
-    sequence: frame.sequence,
-    summary: summarize(frame.annotations.map((item) => item.answer)),
-    annotations: frame.annotations.map((item) => ({
-      answer: item.answer,
-      participant: item.participant.name,
-      profession: item.participant.profession,
-      timestamp: item.timestamp.toISOString()
-    }))
-  }));
+  return rows.map((frame) => {
+    const rated = frame.annotations.filter((item): item is typeof item & { rating: number } => typeof item.rating === "number");
+    return {
+      id: frame.id,
+      movie: frame.movie,
+      frameImage: frameImageUrl(frame),
+      timecode: frame.timecode,
+      director: frame.director,
+      dop: frame.dop,
+      sequence: frame.sequence,
+      summary: summarize(rated.map((item) => item.rating)),
+      annotations: rated.map((item) => ({
+        rating: item.rating,
+        participant: item.participant.name,
+        profession: item.participant.profession,
+        timestamp: item.timestamp.toISOString()
+      }))
+    };
+  });
 }
 
-const objectId = /^[a-f\d]{24}$/i;
-
-function tally(answers: AnnotationAnswer[]) {
-  const count = (answer: AnnotationAnswer) => answers.filter((item) => item === answer).length;
-  return {
-    answered: answers.length,
-    conventional: count("CONVENTIONAL"),
-    unconventional: count("UNCONVENTIONAL"),
-    notSure: count("NOT_SURE")
-  };
-}
+// ---------- Admin: participants ----------
 
 export async function getParticipants(): Promise<ParticipantSummary[]> {
   if (!hasDatabase) return [];
 
   const rows = await prisma.participant.findMany({
     orderBy: { createdAt: "desc" },
-    include: { annotations: { select: { answer: true } } }
+    include: { annotations: { select: { rating: true } } }
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    profession: row.profession,
-    avatar: row.avatar ?? undefined,
-    createdAt: row.createdAt.toISOString(),
-    ...tally(row.annotations.map((item) => item.answer))
-  }));
+  return rows.map((row) => {
+    const ratings = row.annotations.map((item) => item.rating).filter((value): value is number => typeof value === "number");
+    return {
+      id: row.id,
+      name: row.name,
+      profession: row.profession,
+      avatar: row.avatar ?? undefined,
+      createdAt: row.createdAt.toISOString(),
+      answered: ratings.length,
+      average: average(ratings)
+    };
+  });
 }
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
@@ -187,6 +211,17 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
   ]);
   if (!row) return null;
 
+  const responses = row.annotations
+    .filter((item): item is typeof item & { rating: number } => typeof item.rating === "number")
+    .map((item) => ({
+      frameId: item.frameId,
+      movie: item.frame.movie,
+      frameImage: frameImageUrl(item.frame),
+      timecode: item.frame.timecode,
+      rating: item.rating,
+      timestamp: item.timestamp.toISOString()
+    }));
+
   return {
     id: row.id,
     name: row.name,
@@ -194,15 +229,9 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     avatar: row.avatar ?? undefined,
     createdAt: row.createdAt.toISOString(),
     totalFrames,
-    ...tally(row.annotations.map((item) => item.answer)),
-    responses: row.annotations.map((item) => ({
-      frameId: item.frameId,
-      movie: item.frame.movie,
-      frameImage: frameImageUrl(item.frame),
-      timecode: item.frame.timecode,
-      answer: item.answer,
-      timestamp: item.timestamp.toISOString()
-    }))
+    answered: responses.length,
+    average: average(responses.map((item) => item.rating)),
+    responses
   };
 }
 

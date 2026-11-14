@@ -4,38 +4,28 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Bookmark, CircleHelp, Grid3x3, Maximize2, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { LandingHero } from "@/features/landing/landing-hero";
 import { ParticipantForm } from "@/features/frames/participant-form";
 import { StudyTour } from "@/features/frames/study-tour";
 import { ThirdsGrid } from "@/features/frames/thirds-grid";
-import { useLang, type Key } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { AnnotationAnswer, Frame } from "@/types/domain";
-
-const answers: Array<{ value: AnnotationAnswer; label: Key }> = [
-  { value: "UNCONVENTIONAL", label: "ansUnconventional" },
-  { value: "CONVENTIONAL", label: "ansConventional" },
-  { value: "NOT_SURE", label: "ansNotSure" }
-];
-
-const answerKey: Record<AnnotationAnswer, Key> = {
-  UNCONVENTIONAL: "ansUnconventional",
-  CONVENTIONAL: "ansConventional",
-  NOT_SURE: "ansNotSure"
-};
+import { RatingScale } from "@/features/frames/rating-scale";
+import { SCALE_POINTS, type ScaleConfig } from "@/lib/scale";
+import type { Frame } from "@/types/domain";
 
 const REFRESH_MS = 15_000;
 
-export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
-  const { t } = useLang();
+export function FrameViewer({ frames: initialFrames, scale: initialScale }: { frames: Frame[]; scale: ScaleConfig }) {
+  const { t, lang } = useLang();
   const [stage, setStage] = useState<"landing" | "details" | "viewer">("landing");
   const [participantId, setParticipantId] = useState("");
   const [frames, setFrames] = useState(initialFrames);
+  const [scale, setScale] = useState(initialScale);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [responses, setResponses] = useState<Record<string, AnnotationAnswer>>({});
+  const [responses, setResponses] = useState<Record<string, number>>({});
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showThirds, setShowThirds] = useState(false);
   const [replayKey, setReplayKey] = useState(0);
@@ -43,7 +33,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   const [tourOpen, setTourOpen] = useState(false);
   const currentId = useRef<string | undefined>(undefined);
   const frame: Frame | undefined = frames[index];
-  const selected: AnnotationAnswer | null = frame ? (responses[frame.id] ?? null) : null;
+  const selected: number | null = frame ? (responses[frame.id] ?? null) : null;
   const progress = useMemo(() => (frames.length ? ((index + 1) / frames.length) * 100 : 0), [frames.length, index]);
 
   currentId.current = frame?.id;
@@ -69,7 +59,8 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
       try {
         const response = await fetch("/api/frames", { cache: "no-store" });
         if (!response.ok) return;
-        const { frames: next } = (await response.json()) as { frames: Frame[] };
+        const { frames: next, scale: nextScale } = (await response.json()) as { frames: Frame[]; scale?: ScaleConfig };
+        if (nextScale) setScale((current) => (JSON.stringify(current) === JSON.stringify(nextScale) ? current : nextScale));
         setFrames((current) => {
           if (JSON.stringify(current) === JSON.stringify(next)) return current;
           const position = next.findIndex((item) => item.id === currentId.current);
@@ -94,19 +85,19 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
   );
 
   const submitAnswer = useCallback(
-    async (answer = selected) => {
-      if (!answer || !frame) return;
+    async (rating = selected) => {
+      if (!rating || !frame) return;
       const frameId = frame.id;
       const previous = responses[frameId];
-      setResponses((current) => ({ ...current, [frameId]: answer }));
-      setToast(`${t(answerKey[answer])} ${t("saved")}`);
+      setResponses((current) => ({ ...current, [frameId]: rating }));
+      setToast(`${t("rated")} ${rating} · ${t("saved")}`);
 
       let saved = false;
       try {
         const response = await fetch("/api/annotation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ participantId, frameId, answer })
+          body: JSON.stringify({ participantId, frameId, rating })
         });
         saved = response.ok;
       } catch {
@@ -153,9 +144,8 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
       }
       if (event.key === "Enter") void submitAnswer();
       if (event.key === "Escape" && document.fullscreenElement) void document.exitFullscreen();
-      if (event.key === "1") void submitAnswer("UNCONVENTIONAL");
-      if (event.key === "2") void submitAnswer("CONVENTIONAL");
-      if (event.key === "3") void submitAnswer("NOT_SURE");
+      const digit = Number(event.key);
+      if (Number.isInteger(digit) && digit >= 1 && digit <= SCALE_POINTS) void submitAnswer(digit);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -218,9 +208,9 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
         initial={{ opacity: 0, scale: 1.01 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-0 flex items-center justify-center px-3 pb-28 pt-24 sm:px-8 sm:pb-28 sm:pt-28"
+        className="absolute inset-0 flex items-center justify-center px-3 pb-52 pt-24 sm:px-8 sm:pb-56 sm:pt-28"
       >
-        <div className="relative flex h-[min(62dvh,calc(100dvh-14rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(70dvh,calc(100dvh-15rem))] lg:max-w-[min(78vw,1600px)]">
+        <div className="relative flex h-[min(52dvh,calc(100dvh-20rem))] w-full max-w-[min(94vw,1500px)] items-center justify-center [container-type:size] sm:h-[min(62dvh,calc(100dvh-22rem))] lg:max-w-[min(78vw,1600px)]">
           {/* Every frame is shown in a 16:9 box, and the thirds grid lives in that same box. */}
           <div
             data-tour="frame"
@@ -273,7 +263,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
             </motion.section>
 
             <div
-              className="pointer-events-none absolute inset-y-28 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-8"
+              className="pointer-events-none absolute bottom-56 top-28 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-8"
               onClick={(event) => event.stopPropagation()}
             >
               <IconButton
@@ -303,42 +293,25 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
               className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-5 pt-8 sm:px-8 sm:pb-6"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="grid w-full grid-cols-[92px_minmax(0,1fr)_140px] items-center gap-3">
-                <div className="flex justify-self-start gap-2">
+              <RatingScale
+                tourId="answers"
+                question={scale.question[lang]}
+                labels={scale.labels[lang]}
+                selected={selected}
+                onSelect={(rating) => void submitAnswer(rating)}
+              />
+
+              <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-between gap-3">
+                <div className="flex gap-2">
                   <IconButton label={t("saveFrame")} onClick={toggleBookmark}>
-                    <Bookmark
-                      size={16}
-                      fill={bookmarked.has(frame.id) ? "#ffffff" : "transparent"}
-                    />
+                    <Bookmark size={16} fill={bookmarked.has(frame.id) ? "#ffffff" : "transparent"} />
                   </IconButton>
                   <IconButton label={t("replayFrame")} onClick={replayFrame}>
                     <RotateCcw size={16} />
                   </IconButton>
                 </div>
 
-                <div
-                  data-tour="answers"
-                  className="mx-auto flex max-w-full justify-center gap-2 rounded-full bg-black/45 p-2 backdrop-blur-xl sm:gap-3"
-                >
-                  {answers.map((answer) => (
-                    <Button
-                      key={answer.value}
-                      variant="outline"
-                      aria-pressed={selected === answer.value}
-                      onClick={() => void submitAnswer(answer.value)}
-                      className={cn(
-                        "min-h-10 min-w-0 border-white/15 bg-white/5 px-4 text-[13px] sm:px-5 sm:text-sm",
-                        selected === answer.value &&
-                          "border-white bg-white text-black shadow-[0_0_36px_rgba(255,255,255,0.35)]"
-                      )}
-                    >
-                      <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-current" />
-                      <span className="truncate">{t(answer.label)}</span>
-                    </Button>
-                  ))}
-                </div>
-
-                <div data-tour="tools" className="flex justify-self-end gap-2">
+                <div data-tour="tools" className="flex gap-2">
                   <IconButton label={t("showGuide")} onClick={() => setTourOpen(true)}>
                     <CircleHelp size={16} />
                   </IconButton>
@@ -349,10 +322,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
                   >
                     <Grid3x3 size={16} />
                   </IconButton>
-                  <IconButton
-                    label={t("fullscreen")}
-                    onClick={() => void document.documentElement.requestFullscreen()}
-                  >
+                  <IconButton label={t("fullscreen")} onClick={() => void document.documentElement.requestFullscreen()}>
                     <Maximize2 size={16} />
                   </IconButton>
                 </div>
@@ -375,7 +345,7 @@ export function FrameViewer({ frames: initialFrames }: { frames: Frame[] }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="absolute bottom-28 left-1/2 z-30 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-2xl sm:bottom-32"
+            className="absolute bottom-64 left-1/2 z-30 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-2xl sm:bottom-72"
             role="status"
           >
             {toast}

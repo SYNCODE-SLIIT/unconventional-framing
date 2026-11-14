@@ -3,8 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/features/admin/statistics-dashboard";
-import { getParticipant } from "@/lib/data";
-import { answerLabel, cn } from "@/lib/utils";
+import { getParticipant, getScale } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -13,21 +12,14 @@ export const metadata = {
   robots: { index: false, follow: false }
 };
 
-const badge: Record<string, string> = {
-  UNCONVENTIONAL: "bg-white text-black",
-  CONVENTIONAL: "bg-white/10 text-white",
-  NOT_SURE: "bg-zinc-700/50 text-zinc-300"
-};
-
 export default async function ParticipantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const participant = await getParticipant(id);
+  const [participant, scale] = await Promise.all([getParticipant(id), getScale()]);
   if (!participant) notFound();
 
   const stats = [
-    { label: "Unconventional", value: participant.unconventional },
-    { label: "Conventional", value: participant.conventional },
-    { label: "Not sure", value: participant.notSure }
+    { label: "Rated", value: `${participant.answered} / ${participant.totalFrames}` },
+    { label: "Average", value: participant.answered ? `${participant.average} / 5` : "–" }
   ];
 
   return (
@@ -46,7 +38,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
             {participant.totalFrames} frames answered
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {stats.map((item) => (
             <div key={item.label} className="rounded-lg bg-[#111111] px-5 py-4 text-center">
               <p className="text-2xl font-semibold">{item.value}</p>
@@ -79,8 +71,9 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
                       {item.timecode} · {new Date(item.timestamp).toLocaleTimeString()}
                     </p>
                   </div>
-                  <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-medium", badge[item.answer])}>
-                    {answerLabel(item.answer)}
+                  <span className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-xs text-zinc-200">
+                    <span className="grid size-6 place-items-center rounded-full bg-white text-xs font-semibold text-black">{item.rating}</span>
+                    {scale.labels.en[item.rating - 1]}
                   </span>
                 </div>
               </li>

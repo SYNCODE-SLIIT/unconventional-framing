@@ -64,14 +64,15 @@ model Annotation {
   id            String           @id @default(auto()) @map("_id") @db.ObjectId
   participantId String           @db.ObjectId
   frameId       String           @db.ObjectId
-  answer        AnnotationAnswer
+  rating        Int? // 1-5 on the admin-defined scale
+  answer        AnnotationAnswer? // legacy three-way answer, no longer written
   notes         String?
   timestamp     DateTime         @default(now())
   participant   Participant      @relation(fields: [participantId], references: [id], onDelete: Cascade)
   frame         Frame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
 
   @@unique([participantId, frameId])
-  @@index([answer])
+  @@index([rating])
 }
 
 model Account {
@@ -107,4 +108,11 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Small key/value store for admin-editable settings (for example the rating scale labels).
+model Setting {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  key   String @unique
+  value Json
 }

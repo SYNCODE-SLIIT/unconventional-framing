@@ -1,5 +1,3 @@
-export type AnnotationAnswer = "UNCONVENTIONAL" | "CONVENTIONAL" | "NOT_SURE";
-
 export type Frame = {
   id: string;
   movie: string;
@@ -11,9 +9,11 @@ export type Frame = {
   notes?: string;
 };
 
+/** One participant's 1-5 rating of one frame. */
 export type Annotation = {
+  participantId?: string;
   frameId: string;
-  answer: AnnotationAnswer;
+  rating: number;
   notes?: string;
   timestamp: string;
 };
@@ -25,9 +25,8 @@ export type ParticipantSummary = {
   avatar?: string;
   createdAt: string;
   answered: number;
-  conventional: number;
-  unconventional: number;
-  notSure: number;
+  /** Average rating given, 0 when nothing has been rated yet. */
+  average: number;
 };
 
 export type ParticipantDetail = ParticipantSummary & {
@@ -37,32 +36,33 @@ export type ParticipantDetail = ParticipantSummary & {
     movie: string;
     frameImage: string;
     timecode: string;
-    answer: AnnotationAnswer;
+    rating: number;
     timestamp: string;
   }>;
 };
 
+/** How many 1,2,3,4,5 ratings there are. */
+export type RatingCounts = number[];
+
 export type Statistics = {
   participants: number;
-  professions: Array<{
-    profession: string;
-    participants: number;
-    conventional: number;
-    unconventional: number;
-    notSure: number;
-  }>;
   totalFrames: number;
   totalAnnotations: number;
   completionPercent: number;
-  conventionalPercent: number;
-  unconventionalPercent: number;
-  notSurePercent: number;
+  averageRating: number;
+  distribution: RatingCounts;
   movies: Array<{
     movie: string;
     frames: number;
     annotations: number;
-    conventional: number;
-    unconventional: number;
-    notSure: number;
+    average: number;
+    counts: RatingCounts;
+  }>;
+  professions: Array<{
+    profession: string;
+    participants: number;
+    annotations: number;
+    average: number;
+    counts: RatingCounts;
   }>;
 };

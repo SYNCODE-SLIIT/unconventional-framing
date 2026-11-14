@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getFrames } from "@/lib/data";
+import { getFrames, getScale } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ frames: await getFrames() });
+  const [frames, scale] = await Promise.all([getFrames(), getScale()]);
+  return NextResponse.json({ frames, scale });
 }

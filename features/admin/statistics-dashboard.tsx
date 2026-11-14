@@ -5,19 +5,26 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExportDialog } from "@/features/admin/export-dialog";
-import type { ParticipantSummary, Statistics } from "@/types/domain";
+import type { ScaleConfig } from "@/lib/scale";
+import type { ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 const tooltipStyle = { background: "#111111", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" };
 
+// 1 = darkest, 5 = white: reads as a scale in a black and white theme.
+const shades = ["#3f3f46", "#71717a", "#a1a1aa", "#d4d4d8", "#ffffff"];
+
 export function StatisticsDashboard({
   statistics,
-  participants
+  participants,
+  scale
 }: {
   statistics: Statistics;
   participants: ParticipantSummary[];
+  scale: ScaleConfig;
 }) {
   const [query, setQuery] = useState("");
   const [profession, setProfession] = useState("All roles");
+  const names = scale.labels.en;
 
   const filtered = useMemo(
     () =>
@@ -39,18 +46,30 @@ export function StatisticsDashboard({
         <ExportDialog />
       </header>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label="Participants" value={statistics.participants} />
-        <Metric label="Responses" value={statistics.totalAnnotations} />
+        <Metric label="Ratings" value={statistics.totalAnnotations} />
         <Metric label="Frames" value={statistics.totalFrames} />
-        <Metric label="Unconventional" value={`${statistics.unconventionalPercent}%`} />
-        <Metric label="Conventional" value={`${statistics.conventionalPercent}%`} />
-        <Metric label="Not Sure" value={`${statistics.notSurePercent}%`} />
+        <Metric label="Completion" value={`${statistics.completionPercent}%`} />
+        <Metric label="Average rating" value={statistics.totalAnnotations ? `${statistics.averageRating} / 5` : "–"} />
       </section>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        <Chart title="Answers by movie" data={statistics.movies} xKey="movie" />
-        <Chart title="Answers by participant role" data={statistics.professions} xKey="profession" />
+      <section className="mt-8 rounded-lg bg-[#111111] p-5">
+        <h2 className="text-lg font-medium">All ratings</h2>
+        <Distribution counts={statistics.distribution} names={names} />
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Chart
+          title="Ratings by movie"
+          data={statistics.movies.map((item) => ({ label: item.movie, counts: item.counts }))}
+          names={names}
+        />
+        <Chart
+          title="Ratings by participant role"
+          data={statistics.professions.map((item) => ({ label: item.profession, counts: item.counts }))}
+          names={names}
+        />
       </section>
 
       <section className="mt-8 rounded-lg bg-[#111111] p-5">
@@ -101,10 +120,11 @@ export function StatisticsDashboard({
                     <p className="truncate text-sm text-zinc-400">{item.profession}</p>
                   </div>
                   <p className="hidden text-sm text-zinc-400 sm:block">
-                    {item.answered} / {statistics.totalFrames} answered
+                    {item.answered} / {statistics.totalFrames} rated
+                    {item.answered > 0 && <span className="ml-2 text-zinc-500">avg {item.average}</span>}
                   </p>
                   <p className="hidden text-sm text-zinc-500 md:block">{new Date(item.createdAt).toLocaleDateString()}</p>
-                  <ChevronRight size={18} className="text-zinc-600 transition group-hover:text-zinc-300" />
+                  <ChevronRight size={18} className="text-zinc-600 transition group-hover:text-white" />
                 </Link>
               </li>
             ))}
@@ -133,32 +153,55 @@ export function Avatar({ src, size }: { src?: string; size: number }) {
   );
 }
 
-function Chart({
-  title,
-  data,
-  xKey
-}: {
-  title: string;
-  data: Array<{ conventional: number; unconventional: number; notSure: number } & Record<string, string | number>>;
-  xKey: string;
-}) {
+/** One bar per rating with its share, so the shape of the answers is visible at a glance. */
+function Distribution({ counts, names }: { counts: RatingCounts; names: string[] }) {
+  const total = counts.reduce((sum, value) => sum + value, 0);
+  if (total === 0) return <p className="py-10 text-center text-sm text-zinc-500">No ratings yet</p>;
+
+  return (
+    <ul className="mt-5 space-y-3">
+      {counts.map((count, index) => {
+        const percent = Math.round((count / total) * 100);
+        return (
+          <li key={index} className="grid grid-cols-[2rem_minmax(0,11rem)_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm">
+            <span className="grid size-7 place-items-center rounded-full bg-white/10 text-xs font-semibold">{index + 1}</span>
+            <span className="truncate text-zinc-300">{names[index]}</span>
+            <span className="h-2.5 overflow-hidden rounded-full bg-white/5">
+              <span className="block h-full rounded-full" style={{ width: `${percent}%`, background: shades[index] }} />
+            </span>
+            <span className="text-right text-zinc-400">
+              {count} · {percent}%
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function Chart({ title, data, names }: { title: string; data: Array<{ label: string; counts: RatingCounts }>; names: string[] }) {
+  const rows = data.map((item) => ({
+    label: item.label,
+    ...Object.fromEntries(item.counts.map((count, index) => [`r${index + 1}`, count]))
+  }));
+
   return (
     <div className="rounded-lg bg-[#111111] p-5 shadow-2xl shadow-black/40">
       <h2 className="mb-5 text-lg font-medium">{title}</h2>
       <div className="h-72">
-        {data.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="grid h-full place-items-center text-sm text-zinc-500">No data yet</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={rows}>
               <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey={xKey} stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="label" stroke="#a1a1aa" tick={{ fontSize: 12 }} />
               <YAxis stroke="#a1a1aa" allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
               <Legend />
-              <Bar dataKey="unconventional" name="Unconventional" stackId="a" fill="#ffffff" />
-              <Bar dataKey="conventional" name="Conventional" stackId="a" fill="#a1a1aa" />
-              <Bar dataKey="notSure" name="Not sure" stackId="a" fill="#52525b" />
+              {shades.map((fill, index) => (
+                <Bar key={index} dataKey={`r${index + 1}`} name={`${index + 1} · ${names[index]}`} stackId="a" fill={fill} />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         )}

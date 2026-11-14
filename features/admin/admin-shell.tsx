@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Film, LayoutDashboard } from "lucide-react";
+import { ExternalLink, Film, LayoutDashboard, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/features/admin/logout-button";
@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, match: (path: string) => path === "/admin" || path.startsWith("/admin/participants") },
-  { href: "/admin/frames", label: "Frames", icon: Film, match: (path: string) => path.startsWith("/admin/frames") }
+  { href: "/admin/frames", label: "Frames", icon: Film, match: (path: string) => path.startsWith("/admin/frames") },
+  { href: "/admin/scale", label: "Rating scale", icon: SlidersHorizontal, match: (path: string) => path.startsWith("/admin/scale") }
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
