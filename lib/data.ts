@@ -326,3 +326,11 @@ export async function reorderFrames(ids: string[]) {
     ...ids.map((id, index) => prisma.frame.update({ where: { id }, data: { sequence: index + 1 } }))
   ]);
 }
+
+/** Removes a participant for good: their profile (including photo) and every rating they gave. */
+export async function deleteParticipant(id: string) {
+  await prisma.$transaction([
+    prisma.annotation.deleteMany({ where: { participantId: id } }),
+    prisma.participant.delete({ where: { id } })
+  ]);
+}

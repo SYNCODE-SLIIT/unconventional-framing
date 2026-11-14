@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRight, Search, UserRound } from "lucide-react";
+import { ChevronRight, Search, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExportDialog } from "@/features/admin/export-dialog";
@@ -25,8 +26,28 @@ export function StatisticsDashboard({
   statistics: Statistics;
   participants: ParticipantSummary[];
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [profession, setProfession] = useState("All roles");
+  const [toDelete, setToDelete] = useState<ParticipantSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const response = await fetch(`/api/admin/participants/${toDelete.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(response.status === 401 ? "Your session expired. Please sign in again." : "Could not delete this participant.");
+      setToDelete(null);
+      router.refresh();
+    } catch (caught) {
+      setDeleteError(caught instanceof Error ? caught.message : "Could not delete this participant.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = useMemo(
     () =>
@@ -133,11 +154,8 @@ export function StatisticsDashboard({
         ) : (
           <ul className="mt-5 divide-y divide-white/5">
             {filtered.map((item) => (
-              <li key={item.id}>
-                <Link
-                  href={`/admin/participants/${item.id}`}
-                  className="group flex items-center gap-4 rounded-lg px-2 py-3 transition hover:bg-white/5"
-                >
+              <li key={item.id} className="group flex items-center gap-1 rounded-lg transition hover:bg-white/5">
+                <Link href={`/admin/participants/${item.id}`} className="flex min-w-0 flex-1 items-center gap-4 px-2 py-3">
                   <Avatar src={item.avatar} size={44} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{item.name}</p>
@@ -150,11 +168,62 @@ export function StatisticsDashboard({
                   <p className="hidden text-sm text-zinc-500 md:block">{new Date(item.createdAt).toLocaleDateString()}</p>
                   <ChevronRight size={18} className="text-zinc-600 transition group-hover:text-white" />
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError("");
+                    setToDelete(item);
+                  }}
+                  aria-label={`Delete ${item.name}`}
+                  title="Delete participant"
+                  className="mr-1 grid size-9 shrink-0 place-items-center rounded-full text-zinc-500 transition hover:bg-red-500/15 hover:text-red-300"
+                >
+                  <Trash2 size={16} />
+                </button>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {toDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-4 backdrop-blur-sm" role="alertdialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-zinc-950 p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold">Delete {toDelete.name}?</h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              This permanently removes them from the database: their profile and photo
+              {toDelete.answered > 0 && (
+                <>
+                  , and all {toDelete.answered} {toDelete.answered === 1 ? "rating" : "ratings"} they gave
+                </>
+              )}
+              . The totals and charts will update. This can&apos;t be undone.
+            </p>
+            {deleteError && (
+              <p role="alert" className="mt-3 text-sm text-red-400">
+                {deleteError}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setToDelete(null)}
+                className="h-10 rounded-full border border-white/15 px-5 text-sm text-zinc-200 transition hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={deleting}
+                className="h-10 rounded-full bg-red-500 px-5 text-sm font-medium text-white transition hover:bg-red-400 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
