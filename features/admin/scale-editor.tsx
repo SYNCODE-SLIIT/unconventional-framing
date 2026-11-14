@@ -28,8 +28,6 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
   const update = (change: (value: ScaleConfig["categories"][Category]) => ScaleConfig["categories"][Category]) =>
     setScale((state) => ({ categories: { ...state.categories, [category]: change(state.categories[category]) } }));
 
-  const setQuestion = (lang: "en" | "si", value: string) => update((c) => ({ ...c, question: { ...c.question, [lang]: value } }));
-
   const setLabel = (lang: "en" | "si", index: number, value: string) =>
     update((c) => ({ ...c, labels: { ...c.labels, [lang]: c.labels[lang].map((item, i) => (i === index ? value : item)) } }));
 
@@ -60,7 +58,7 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
         <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">Rating scale</h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
           Participants first choose Unconventional, Conventional or Not sure, then a number from 1 to 5. Pick a first answer below to edit
-          the question and the words under each number that follow it, in English and Sinhala.
+          the words under each number that follow it, in English and Sinhala.
         </p>
       </header>
 
@@ -91,17 +89,6 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
       <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <form onSubmit={save} className="space-y-6">
           <fieldset disabled={!editable || busy} className="space-y-6">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1.5 block text-sm text-zinc-300">Question (English)</span>
-                <input required className={inputClass} value={current.question.en} onChange={(e) => setQuestion("en", e.target.value)} />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm text-zinc-300">Question (සිංහල)</span>
-                <input required className={inputClass} value={current.question.si} onChange={(e) => setQuestion("si", e.target.value)} />
-              </label>
-            </div>
-
             <div>
               <div className="mb-2 grid grid-cols-[2.25rem_1fr_1fr] gap-3 text-sm text-zinc-300">
                 <span />
@@ -180,7 +167,7 @@ export function ScaleEditor({ initial, editable }: { initial: ScaleConfig; edita
             </div>
           </div>
           <div className="rounded-xl bg-[#111111] p-6">
-            <RatingScale question={current.question[previewLang]} labels={current.labels[previewLang]} selected={4} className="bg-transparent" />
+            <RatingScale labels={current.labels[previewLang]} selected={4} className="bg-transparent" />
             <p className="mt-4 text-center text-xs text-zinc-500">
               This is the second step, shown after &ldquo;{categoryNames[category]}&rdquo; is chosen. The highlighted number is just an example.
             </p>

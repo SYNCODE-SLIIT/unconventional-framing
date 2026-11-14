@@ -358,7 +358,6 @@ export function FrameViewer({ frames: initialFrames, scale: initialScale }: { fr
                     transition={{ duration: 0.25 }}
                   >
                     <RatingScale
-                      question={scale.categories[choice].question[lang]}
                       labels={scale.categories[choice].labels[lang]}
                       selected={selected}
                       onSelect={(rating) => void submitRating(rating)}

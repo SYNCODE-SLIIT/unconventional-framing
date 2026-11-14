@@ -14,7 +14,8 @@ export function RatingScale({
   className,
   tourId
 }: {
-  question: string;
+  /** Optional heading above the numbers; when left out only the numbers and their words show. */
+  question?: string;
   labels: string[];
   selected: number | null;
   onSelect?: (rating: number) => void;
@@ -26,12 +27,12 @@ export function RatingScale({
       data-tour={tourId}
       className={cn("mx-auto w-full max-w-3xl rounded-2xl bg-black/50 px-3 pb-3 pt-3 backdrop-blur-xl sm:px-6", className)}
     >
-      <p className="mb-3 text-center text-xs font-medium text-zinc-200 sm:text-sm">{question}</p>
+      {question && <p className="mb-3 text-center text-xs font-medium text-zinc-200 sm:text-sm">{question}</p>}
 
       <div className="relative">
         {/* the line that links the numbers into a scale */}
         <span aria-hidden className="absolute left-[10%] right-[10%] top-5 h-px bg-white/20" />
-        <div role="radiogroup" aria-label={question} className="relative grid grid-cols-5 gap-1 sm:gap-3">
+        <div role="radiogroup" aria-label={question ?? "Rating"} className="relative grid grid-cols-5 gap-1 sm:gap-3">
           {labels.map((label, index) => {
             const rating = index + 1;
             const active = selected === rating;
