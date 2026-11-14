@@ -1,3 +1,8 @@
+/** Uploads are cut into pieces below the host's request size limit (about 4.5 MB). */
+export const VIDEO_CHUNK = 3_500_000;
+export const MAX_VIDEO_BYTES = 150 * 1024 * 1024;
+export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+
 export type ParsedVideo = { kind: "youtube"; id: string } | { kind: "file"; url: string };
 
 /** Understands a YouTube link (watch, short or embed) or a direct link to a video file. */

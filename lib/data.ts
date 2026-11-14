@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { annotations as mockAnnotations, frames as mockFrames } from "@/lib/mock-data";
 import { SCALE_POINTS, defaultScale, normalizeScale, type ScaleConfig } from "@/lib/scale";
+import { VIDEO_CHUNK } from "@/lib/video";
 import type { AnnotationAnswer, Frame, ParticipantDetail, ParticipantSummary, RatingCounts, Statistics } from "@/types/domain";
 
 /**
@@ -317,14 +318,27 @@ export async function createFrame(input: FrameInput) {
   return prisma.frame.create({ data: { ...input, sequence: (last?.sequence ?? 0) + 1 } });
 }
 
+const UPLOADED_VIDEO = /^\/api\/videos\/([a-f\d]{24})$/i;
+
+async function removeUploadedVideo(url?: string | null) {
+  const match = url?.match(UPLOADED_VIDEO);
+  if (match) await deleteVideo(match[1]);
+}
+
 export async function updateFrame(id: string, input: Partial<FrameInput>) {
-  return prisma.frame.update({ where: { id }, data: input });
+  const before = input.video !== undefined ? await prisma.frame.findUnique({ where: { id }, select: { video: true } }) : null;
+  const updated = await prisma.frame.update({ where: { id }, data: input });
+  // If the video was replaced or removed, free the space the old uploaded file used.
+  if (before?.video && before.video !== input.video) await removeUploadedVideo(before.video);
+  return updated;
 }
 
 export async function deleteFrame(id: string) {
+  const frame = await prisma.frame.findUnique({ where: { id }, select: { video: true } });
   // Responses to a deleted frame are removed with it.
   await prisma.annotation.deleteMany({ where: { frameId: id } });
   await prisma.frame.delete({ where: { id } });
+  await removeUploadedVideo(frame?.video);
 }
 
 /** Returns the stored image for a frame as bytes, when it was uploaded rather than a static file. */
@@ -367,4 +381,56 @@ export async function purgeParticipants(ids: string[]) {
     prisma.annotation.deleteMany({ where: { participantId: { in: ids } } }),
     prisma.participant.deleteMany({ where: { id: { in: ids } } })
   ]);
+}
+
+// ---------- Uploaded videos (stored in chunks) ----------
+
+export async function createVideo(input: { filename: string; contentType: string; size: number }) {
+  return prisma.video.create({ data: { ...input, chunkSize: VIDEO_CHUNK } });
+}
+
+export async function saveVideoChunk(videoId: string, index: number, data: Buffer) {
+  // Re-sending a piece (a retry) simply replaces it.
+  await prisma.videoChunk.deleteMany({ where: { videoId, index } });
+  await prisma.videoChunk.create({ data: { videoId, index, data: new Uint8Array(data) } });
+}
+
+export async function completeVideo(videoId: string) {
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  if (!video) return false;
+  const expected = Math.ceil(video.size / video.chunkSize);
+  const stored = await prisma.videoChunk.count({ where: { videoId } });
+  if (stored !== expected) return false;
+  await prisma.video.update({ where: { id: videoId }, data: { complete: true } });
+  return true;
+}
+
+export async function deleteVideo(videoId: string) {
+  await prisma.videoChunk.deleteMany({ where: { videoId } });
+  await prisma.video.deleteMany({ where: { id: videoId } });
+}
+
+/** Reads bytes `start..end` (inclusive) of an uploaded video. */
+export async function readVideoRange(videoId: string, start: number, end: number) {
+  if (!hasDatabase || !objectId.test(videoId)) return null;
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  if (!video || !video.complete) return null;
+
+  const last = Math.min(end, video.size - 1);
+  const first = Math.floor(start / video.chunkSize);
+  const lastChunk = Math.floor(last / video.chunkSize);
+  const rows = await prisma.videoChunk.findMany({
+    where: { videoId, index: { gte: first, lte: lastChunk } },
+    orderBy: { index: "asc" }
+  });
+
+  const joined = Buffer.concat(rows.map((row) => Buffer.from(row.data)));
+  const offset = start - first * video.chunkSize;
+  return {
+    contentType: video.contentType,
+    size: video.size,
+    start,
+    end: last,
+    bytes: joined.subarray(offset, offset + (last - start + 1))
+  };
 }

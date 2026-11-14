@@ -5,11 +5,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/admin/login";
   const isLoginApi = pathname === "/api/admin/login";
-  // The video upload route checks the admin session itself, because Vercel Blob calls it back without a cookie.
-  const isUploadApi = pathname === "/api/admin/video-upload";
   const isApi = pathname.startsWith("/api/");
 
-  if (isLoginPage || isLoginApi || isUploadApi) return NextResponse.next();
+  if (isLoginPage || isLoginApi) return NextResponse.next();
 
   const authorized = await verifySessionToken(request.cookies.get(ADMIN_COOKIE)?.value);
   if (authorized) return NextResponse.next();

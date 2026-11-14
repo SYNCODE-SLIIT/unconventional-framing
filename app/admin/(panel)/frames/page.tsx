@@ -10,5 +10,5 @@ export const metadata = {
 
 export default async function AdminFramesPage() {
   const frames = await getAdminFrames();
-  return <FramesManager frames={frames} editable={hasDatabase} uploadReady={Boolean(process.env.BLOB_READ_WRITE_TOKEN)} />;
+  return <FramesManager frames={frames} editable={hasDatabase} />;
 }

@@ -12,7 +12,7 @@ const video = z
   .string()
   .trim()
   .max(2000)
-  .refine((value) => /^https?:\/\//i.test(value), "Use a full link starting with http:// or https://");
+  .refine((value) => /^(https?:\/\/|\/api\/videos\/[a-f\d]{24}$)/i.test(value), "Use a full link starting with http:// or https://");
 
 export const frameCreateSchema = z.object({
   movie: z.string().trim().min(1).max(160),

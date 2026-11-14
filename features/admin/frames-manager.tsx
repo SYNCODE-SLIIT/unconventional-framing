@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CropDialog } from "@/features/frames/crop-dialog";
 import { ThirdsGrid } from "@/features/frames/thirds-grid";
+import { MAX_VIDEO_BYTES, VIDEO_CHUNK, VIDEO_TYPES } from "@/lib/video";
 import { cn } from "@/lib/utils";
 import type { Frame } from "@/types/domain";
 
@@ -29,7 +30,7 @@ const empty: Draft = { movie: "", timecode: "", director: "", dop: "", notes: ""
 const inputClass =
   "h-11 w-full rounded-lg border border-white/15 bg-zinc-900 px-3.5 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:ring-2 focus:ring-white/20";
 
-export function FramesManager({ frames, editable, uploadReady }: { frames: AdminFrame[]; editable: boolean; uploadReady: boolean }) {
+export function FramesManager({ frames, editable }: { frames: AdminFrame[]; editable: boolean }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<AdminFrame | null>(null);
@@ -125,20 +126,48 @@ export function FramesManager({ frames, editable, uploadReady }: { frames: Admin
 
   const uploadVideo = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("video/")) {
-      setError("Please choose a video file (MP4 or WebM works best).");
+    if (!VIDEO_TYPES.includes(file.type)) {
+      setError("Please choose an MP4, WebM or MOV video.");
       return;
     }
+    if (file.size > MAX_VIDEO_BYTES) {
+      setError(`That video is too large. The limit is ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} MB.`);
+      return;
+    }
+
     setError("");
     setProgress(0);
     try {
-      const { upload } = await import("@vercel/blob/client");
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/admin/video-upload",
-        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage))
+      // The file is sent in small pieces, so big videos work within the host's request size limit.
+      const created = await fetch("/api/admin/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size })
       });
-      setDraft((current) => (current ? { ...current, video: blob.url } : current));
+      if (created.status === 401) throw new Error("Your session expired. Please sign in again.");
+      if (!created.ok) throw new Error((await created.json().catch(() => ({}))).error ?? "Could not start the upload.");
+      const { id } = (await created.json()) as { id: string };
+
+      const total = Math.ceil(file.size / VIDEO_CHUNK);
+      for (let index = 0; index < total; index += 1) {
+        const piece = file.slice(index * VIDEO_CHUNK, (index + 1) * VIDEO_CHUNK);
+        let sent = false;
+        for (let attempt = 0; attempt < 3 && !sent; attempt += 1) {
+          const response = await fetch(`/api/admin/videos/${id}/chunks/${index}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: piece
+          }).catch(() => null);
+          sent = Boolean(response?.ok);
+        }
+        if (!sent) throw new Error("The upload was interrupted. Please try again.");
+        setProgress(Math.round(((index + 1) / total) * 100));
+      }
+
+      const done = await fetch(`/api/admin/videos/${id}/complete`, { method: "POST" });
+      if (!done.ok) throw new Error((await done.json().catch(() => ({}))).error ?? "Could not finish the upload.");
+      const { url } = (await done.json()) as { url: string };
+      setDraft((current) => (current ? { ...current, video: url } : current));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not upload the video.");
     } finally {
@@ -397,15 +426,12 @@ export function FramesManager({ frames, editable, uploadReady }: { frames: Admin
                   <button
                     type="button"
                     onClick={() => videoFileRef.current?.click()}
-                    disabled={!uploadReady || progress !== null}
+                    disabled={progress !== null}
                     className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 px-4 text-sm text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Upload size={15} /> {progress !== null ? `Uploading ${progress}%` : "Upload a video file"}
                   </button>
-                  {!uploadReady && (
-                    <span className="text-xs text-zinc-500">File upload needs a Blob store connected in Vercel. A link works without it.</span>
-                  )}
-                  {draft.video && progress === null && <span className="text-xs text-zinc-400">Video added</span>}
+                  {draft.video && progress === null && <span className="text-xs text-zinc-400">{draft.video.startsWith("/api/videos/") ? "Video uploaded" : "Video link added"}</span>}
                 </div>
                 <input
                   ref={videoFileRef}
@@ -417,6 +443,7 @@ export function FramesManager({ frames, editable, uploadReady }: { frames: Admin
                     event.target.value = "";
                   }}
                 />
+                <p className="text-xs text-zinc-500">Uploads: MP4, WebM or MOV, up to 150 MB. Larger files are better added as a YouTube link.</p>
                 <p className="text-xs text-zinc-500">Choose a cover picture below. It shows while the video loads and in the participant&apos;s results.</p>
               </div>
             )}

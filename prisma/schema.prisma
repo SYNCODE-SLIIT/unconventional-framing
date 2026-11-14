@@ -118,3 +118,25 @@ model Setting {
   key   String @unique
   value Json
 }
+
+// Uploaded videos live in the database, split into chunks so each request stays small.
+model Video {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  filename    String
+  contentType String
+  size        Int
+  chunkSize   Int
+  complete    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  chunks      VideoChunk[]
+}
+
+model VideoChunk {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  videoId String @db.ObjectId
+  index   Int
+  data    Bytes
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, index])
+}
